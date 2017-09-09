@@ -9,18 +9,19 @@ import (
     // "net/url"
 )
 
-type person struct {
+type user struct {
     FirstName string
     SecondName string
+    Password string
 }
 
-var employees []person
+var users []user
 
-func barHandler(w http.ResponseWriter, r *http.Request) {
+func userHandler(w http.ResponseWriter, r *http.Request) {
     switch r.Method {
     case "GET":
         var ej []byte
-        ej , err := json.Marshal(employees)
+        ej , err := json.Marshal(users)
         if err != nil {
             w.WriteHeader(http.StatusInternalServerError)
             return
@@ -48,19 +49,23 @@ func barHandler(w http.ResponseWriter, r *http.Request) {
                 return
             }
         }
+        if val, ok := r.PostForm["password"]; ok {
+            if len(val) != 1 {
+                w.WriteHeader(http.StatusBadRequest)
+                return
+            }
+        }
 
-        employees = append(employees, person{r.PostForm["firstName"][0], r.PostForm["secondName"][0]})
+        users = append(users, user{
+            r.PostForm["firstName"][0],
+            r.PostForm["secondName"][0],
+            r.PostForm["password"][0]})
     default:
     }
 }
 
-func fooHandler(w http.ResponseWriter, r *http.Request) {
-    fmt.Fprintf(w, "got foo handler")
-}
-
 func main() {
-    http.HandleFunc("/bar", barHandler)
-    http.HandleFunc("/foo", fooHandler)
+    http.HandleFunc("/users", userHandler)
 
     http.ListenAndServe(":8080", nil)
 }
