@@ -5,7 +5,17 @@ import (
     "fmt"
     "encoding/json"
     "github.com/satori/go.uuid"
+    "io/ioutil"
+    "errors"
 )
+
+func readAndUnmarshal(r *http.Request, x interface{}) error {
+    rb, err := ioutil.ReadAll(r.Body)
+    if err != nil {
+        return err
+    }
+    return json.Unmarshal(rb, x)
+}
 
 type user struct {
     Uuid uuid.UUID
@@ -13,7 +23,62 @@ type user struct {
     SecondName string
 }
 
+func (u * user) verifyAndParseNew(b []byte) error {
+    var t struct{
+        FirstName * string
+        SecondName * string
+    }
+    err := json.Unmarshal(b, &t)
+
+    if err != nil {
+        return err
+    }
+
+    if t.FirstName == nil {
+        return errors.New("user FirstName not set when required")
+    }
+
+    if t.SecondName == nil {
+        return errors.New("user SecondName not set when required")
+    }
+
+    u.Uuid = uuid.NewV4()
+    u.FirstName = *t.FirstName
+    u.SecondName = *t.SecondName
+    return nil
+}
+
+func (u * user) verifyAndParseEdit(b []byte) error {
+    bu := u.Uuid
+    err := json.Unmarshal(b, &u)
+    if err != nil {
+        return err
+    }
+    u.Uuid = bu
+    return nil
+}
+
+type userNew user
+func (u * userNew) UnmarshalJSON(b []byte) error {
+    return (* user)(u).verifyAndParseNew(b)
+}
+
+type userEdit user
+func (u * userEdit) UnmarshalJSON(b []byte) error {
+    return (* user)(u).verifyAndParseEdit(b)
+}
+
 var users []user
+
+func findUserIndex(targetUuid uuid.UUID) (int, error) {
+    var i int
+    for i, _ = range users {
+        if uuid.Equal(users[i].Uuid, targetUuid) {
+            return i, nil
+        }
+    }
+    return -1, errors.New("could not find user")
+}
 
 func init() {
     users = []user{}
@@ -35,24 +100,31 @@ func usersHandler(w http.ResponseWriter, r *http.Request) {
 
     case "POST":
         w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
-        firstName := r.PostFormValue("firstName")
-        secondName := r.PostFormValue("secondName")
 
-        if firstName == "" || secondName == "" {
-            http.Error(w, "error parsing form", http.StatusInternalServerError)
+        var u user
+        err := readAndUnmarshal(r, (*userNew)(&u))
+        if err != nil {
+            http.Error(w, "error parsing request body: " + err.Error(), http.StatusInternalServerError)
             return
         }
 
-        users = append(users, user{
-            uuid.NewV4(),
-            r.PostForm["firstName"][0],
-            r.PostForm["secondName"][0]})
+        users = append(users, u)
     default:
     }
 }
 
 func userHandler(w http.ResponseWriter, r *http.Request) {
     userUuid, err := uuid.FromString(r.URL.Path)
+    var i int
+
+    if r.Method != "OPTIONS" {
+        i, err = findUserIndex(userUuid)
+        if err != nil {
+            http.Error(w, "user not found", http.StatusInternalServerError)
+            return
+        }
+    }
+
     if err != nil {
         http.Error(w, "error decoding UUID", http.StatusInternalServerError)
         return
@@ -65,71 +137,28 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
         return
     case "PUT":
         w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
-        found := false
-        for i, u := range users {
-            if uuid.Equal(u.Uuid, userUuid) {
-                found = true
 
-                if r.PostFormValue("firstName") != "" {
-                    users[i].FirstName = r.PostFormValue("firstName")
-                }
-                if r.PostFormValue("secondName") != "" {
-                    users[i].SecondName = r.PostFormValue("secondName")
-                }
-                break
-            }
-        }
+        err = readAndUnmarshal(r, (*userEdit)(&users[i]))
 
-        if !found {
-            http.Error(w, "user not found", http.StatusInternalServerError)
+        if err != nil {
+            http.Error(w, "error parsing request body: " + err.Error(), http.StatusInternalServerError)
             return
         }
 
         return
     case "DELETE":
         w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
-        found := false
-        var i int
-        var u user
-        for i, u = range users {
-            if uuid.Equal(u.Uuid, userUuid) {
-                found = true
-            }
-            break
-        }
-
-        if !found {
-            http.Error(w, "user not found", http.StatusInternalServerError)
-            return
-        }
-
         users = append(users[:i], users[i+1:]...)
     case "GET":
         w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
-        found := false
-
-        var i int
-        var u user
-        for i, u = range users {
-            if uuid.Equal(u.Uuid, userUuid) {
-                found = true
-            }
-            break
-        }
-
-        if !found {
-            http.Error(w, "user not found", http.StatusInternalServerError)
-            return
-        }
 
         var ej []byte
         ej , err := json.Marshal(users[i])
         if err != nil {
-            http.Error(w, "error decoding JSON", http.StatusInternalServerError)
+            http.Error(w, "error encoding JSON", http.StatusInternalServerError)
             return
         }
 
-        w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
         fmt.Fprint(w, string(ej))
     default:
     }
