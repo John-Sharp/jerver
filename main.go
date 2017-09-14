@@ -84,8 +84,35 @@ func init() {
     users = []user{}
 }
 
+func verifyUser (uname string, pword string) bool {
+    if uname == "jcsharp" && pword == "pwd" {
+        return true
+    }
+    return false
+}
+
 func usersHandler(w http.ResponseWriter, r *http.Request) {
+    if r.Method != "OPTIONS" {
+        var uname, pword, ok = r.BasicAuth()
+        if (!ok) {
+            w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
+            w.Header().Add("WWW-Authenticate", "Basic realm=\"a\"")
+            http.Error(w, "", http.StatusUnauthorized)
+            return
+        }
+
+        if !verifyUser(uname, pword) {
+            http.Error(w, "incorrect uname/pword", http.StatusForbidden)
+            return
+        }
+    }
+
     switch r.Method {
+    case "OPTIONS":
+        w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
+        w.Header().Add("Access-Control-Allow-Headers", "Authorization")
+        w.Header().Add("Access-Control-Allow-Methods", "GET, POST")
+        return
     case "GET":
         var ej []byte
         ej , err := json.Marshal(users)
@@ -123,6 +150,19 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
             http.Error(w, "user not found", http.StatusInternalServerError)
             return
         }
+
+        var uname, pword, ok = r.BasicAuth()
+        if (!ok) {
+            w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
+            w.Header().Add("WWW-Authenticate", "Basic realm=\"a\"")
+            http.Error(w, "", http.StatusUnauthorized)
+            return
+        }
+        if !verifyUser(uname, pword) {
+            http.Error(w, "incorrect uname/pword", http.StatusForbidden)
+            return
+        }
+
     }
 
     if err != nil {
@@ -133,6 +173,7 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
     switch r.Method {
     case "OPTIONS":
         w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
+        w.Header().Add("Access-Control-Allow-Headers", "Authorization")
         w.Header().Add("Access-Control-Allow-Methods", "GET, PUT, DELETE")
         return
     case "PUT":
