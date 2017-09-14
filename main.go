@@ -205,9 +205,32 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
     }
 }
 
+func verificationHandler(w http.ResponseWriter, r *http.Request) {
+    w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
+    if r.Method == "OPTIONS" {
+        w.Header().Add("Access-Control-Allow-Headers", "Authorization")
+        w.Header().Add("Access-Control-Allow-Methods", "GET")
+        return
+    }
+
+    var uname, pword, ok = r.BasicAuth()
+    if (!ok) {
+        w.Header().Add("WWW-Authenticate", "Basic realm=\"a\"")
+        http.Error(w, "", http.StatusUnauthorized)
+        return
+    }
+    if !verifyUser(uname, pword) {
+        http.Error(w, "incorrect uname/pword", http.StatusForbidden)
+        return
+    }
+}
+
+
 func main() {
     http.HandleFunc("/users", usersHandler)
     http.Handle("/users/", http.StripPrefix("/users/", http.HandlerFunc(userHandler)))
+
+    http.HandleFunc("/verification", verificationHandler)
 
     http.ListenAndServe(":8080", nil)
 }
