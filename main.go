@@ -9,21 +9,42 @@ import (
 	"net/http"
 )
 
+// interface for generic collection of api entities
 type entityCollection interface {
+
+	// given a []byte containing JSON, should create an entity and
+	// add it to the collection
 	createEntity(body []byte) error
+
+	// given a Uuid should find entity in collection and return
 	getEntity(targetUuid uuid.UUID) (entity, error)
+
+	// return whole collection (in future maybe include filters
+	// in argument and return subset of collection)
 	getCollection() (interface{}, error)
+
+	// edit entity with Uuid in collection according to JSON
+	// in body
 	editEntity(targetUuid uuid.UUID, body []byte) error
+
+	// delete entity with targetUuid
 	delEntity(targetUuid uuid.UUID) error
 }
+
+// type definition of a generic api entity
 type entity interface{}
 
+// user is an api entity
 type user struct {
 	Uuid       uuid.UUID
 	FirstName  string
 	SecondName string
 }
 
+// called during the jsonUnmarshal of a new user.
+// Do verification of contents of request body
+// and additional creation processes here (such
+// as generating a unique id)
 func (u *user) verifyAndParseNew(b []byte) error {
 	var t struct {
 		FirstName  *string
@@ -48,6 +69,11 @@ func (u *user) verifyAndParseNew(b []byte) error {
 	u.SecondName = *t.SecondName
 	return nil
 }
+
+// called during the jsonUnmarshal of an edit of a user.
+// Do error checking here, and make sure that any fields
+// that need to be preserved are preserved (in this case
+// the Uuid)
 func (u *user) verifyAndParseEdit(b []byte) error {
 	bu := u.Uuid
 	err := json.Unmarshal(b, &u)
@@ -58,8 +84,13 @@ func (u *user) verifyAndParseEdit(b []byte) error {
 	return nil
 }
 
+// userNew and userEdit are types so that parsing of JSON
+// is done differently for new users to how it is done for
+// edited users
 type userNew user
 
+// defining this method means that 'verifyAndParseNew' is
+// called whenever the JSON parser encounters a userNew type
 func (u *userNew) UnmarshalJSON(b []byte) error {
 	return (*user)(u).verifyAndParseNew(b)
 }
@@ -70,9 +101,15 @@ func (u *userEdit) UnmarshalJSON(b []byte) error {
 	return (*user)(u).verifyAndParseEdit(b)
 }
 
+// userCollection will implement entityCollection
+// in this example it is just defined as a slice of users
+// in future could be a wrapper around db connection etc
 type userCollection []user
 
+// global variable representing userCollection of all users in example
 var users userCollection
+
+// implementation of entityCollectionInterface...
 
 func (uc *userCollection) createEntity(body []byte) error {
 	var u user
@@ -127,6 +164,7 @@ func init() {
 	users = []user{}
 }
 
+// checks log-in credentials
 func verifyAccount(uname string, pword string) bool {
 	if uname == "jcsharp" && pword == "pwd" {
 		return true
@@ -134,6 +172,13 @@ func verifyAccount(uname string, pword string) bool {
 	return false
 }
 
+// returns two http.Handlers for dealing with REST API requests
+// manipulating entities in entity collection 'ec'
+// first return value is for dealing with requests ending in /<uuid> and
+// handles api retrieval, edit, and deletion of single entity
+// second return value is for dealing with requests dealing with whole collection,
+// and handles creation of an entity in the collection, and retrieval
+// of whole collection
 func entityApiHandlerFactory(ec entityCollection) (http.Handler, http.Handler) {
 	singularHandler := func(w http.ResponseWriter, r *http.Request) {
 		userUuid, err := uuid.FromString(r.URL.Path)
@@ -234,7 +279,13 @@ func entityApiHandlerFactory(ec entityCollection) (http.Handler, http.Handler) {
 			return
 		case "GET":
 			var ej []byte
-			ej, err := json.Marshal(users)
+			c, err := ec.getCollection()
+			if err != nil {
+				http.Error(w, "error retrieving collection", http.StatusInternalServerError)
+				return
+			}
+
+			ej, err = json.Marshal(c)
 			if err != nil {
 				http.Error(w, "error decoding JSON", http.StatusInternalServerError)
 				return
@@ -252,7 +303,7 @@ func entityApiHandlerFactory(ec entityCollection) (http.Handler, http.Handler) {
 				http.Error(w, "error parsing request body: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
-			err = users.createEntity(b)
+			err = ec.createEntity(b)
 			if err != nil {
 				http.Error(w, "error creating user: "+err.Error(), http.StatusInternalServerError)
 				return
@@ -264,6 +315,9 @@ func entityApiHandlerFactory(ec entityCollection) (http.Handler, http.Handler) {
 	return http.HandlerFunc(singularHandler), http.HandlerFunc(pluralHandler)
 }
 
+// takes a route to an entity collection and and entity collection
+// and sets up handlers with defaultMux in net/http for entities of
+// this type
 func createApiRoute(path string, ec entityCollection) {
 	sHandler, pHandler := entityApiHandlerFactory(ec)
 
@@ -272,6 +326,7 @@ func createApiRoute(path string, ec entityCollection) {
 	http.Handle(sPath, http.StripPrefix(sPath, sHandler))
 }
 
+// basic part of api for validating a user
 func verificationHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
 	if r.Method == "OPTIONS" {
