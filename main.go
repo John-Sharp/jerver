@@ -17,6 +17,15 @@ func readAndUnmarshal(r *http.Request, x interface{}) error {
 	return json.Unmarshal(rb, x)
 }
 
+type entityCollection interface {
+	createEntity(body []byte) error
+	getEntity(targetUuid uuid.UUID) (entity, error)
+	getCollection() (interface{}, error)
+	editEntity(targetUuid uuid.UUID, body []byte) error
+	delEntity(targetUuid uuid.UUID) error
+}
+type entity interface{}
+
 type user struct {
 	Uuid       uuid.UUID
 	FirstName  string
@@ -47,7 +56,6 @@ func (u *user) verifyAndParseNew(b []byte) error {
 	u.SecondName = *t.SecondName
 	return nil
 }
-
 func (u *user) verifyAndParseEdit(b []byte) error {
 	bu := u.Uuid
 	err := json.Unmarshal(b, &u)
@@ -70,23 +78,64 @@ func (u *userEdit) UnmarshalJSON(b []byte) error {
 	return (*user)(u).verifyAndParseEdit(b)
 }
 
-var users []user
+type userCollection []user
 
-func findUserIndex(targetUuid uuid.UUID) (int, error) {
+var users userCollection
+
+func (uc *userCollection) createEntity(body []byte) error {
+	var u user
+	err := json.Unmarshal(body, (*userNew)(&u))
+	if err != nil {
+		return err
+	}
+	*uc = append(*uc, u)
+	return nil
+}
+
+func (uc *userCollection) getEntity(targetUuid uuid.UUID) (entity, error) {
 	var i int
-	for i, _ = range users {
-		if uuid.Equal(users[i].Uuid, targetUuid) {
-			return i, nil
+	for i, _ = range *uc {
+		if uuid.Equal((*uc)[i].Uuid, targetUuid) {
+			return &(*uc)[i], nil
 		}
 	}
-	return -1, errors.New("could not find user")
+	return nil, errors.New("could not find user")
+}
+
+func (uc *userCollection) getCollection() (interface{}, error) {
+	return uc, nil
+}
+
+func (uc *userCollection) editEntity(targetUuid uuid.UUID, body []byte) error {
+	e, err := uc.getEntity(targetUuid)
+	if err != nil {
+		return err
+	}
+
+	u, ok := e.(*user)
+	if !ok {
+		return errors.New("user pointer type assertion error")
+	}
+
+	return json.Unmarshal(body, (*userEdit)(u))
+}
+
+func (uc *userCollection) delEntity(targetUuid uuid.UUID) error {
+	var i int
+	for i, _ = range *uc {
+		if uuid.Equal((*uc)[i].Uuid, targetUuid) {
+			(*uc) = append((*uc)[:i], (*uc)[i+1:]...)
+			return nil
+		}
+	}
+	return errors.New("could not find user to delete")
 }
 
 func init() {
 	users = []user{}
 }
 
-func verifyUser(uname string, pword string) bool {
+func verifyAccount(uname string, pword string) bool {
 	if uname == "jcsharp" && pword == "pwd" {
 		return true
 	}
@@ -103,7 +152,7 @@ func usersHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if !verifyUser(uname, pword) {
+		if !verifyAccount(uname, pword) {
 			http.Error(w, "incorrect uname/pword", http.StatusForbidden)
 			return
 		}
@@ -130,29 +179,24 @@ func usersHandler(w http.ResponseWriter, r *http.Request) {
 	case "POST":
 		w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
 
-		var u user
-		err := readAndUnmarshal(r, (*userNew)(&u))
+		b, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, "error parsing request body: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-
-		users = append(users, u)
+		err = users.createEntity(b)
+		if err != nil {
+			http.Error(w, "error creating user: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 	default:
 	}
 }
 
 func userHandler(w http.ResponseWriter, r *http.Request) {
 	userUuid, err := uuid.FromString(r.URL.Path)
-	var i int
 
 	if r.Method != "OPTIONS" {
-		i, err = findUserIndex(userUuid)
-		if err != nil {
-			http.Error(w, "user not found", http.StatusInternalServerError)
-			return
-		}
-
 		var uname, pword, ok = r.BasicAuth()
 		if !ok {
 			w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
@@ -160,7 +204,7 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "", http.StatusUnauthorized)
 			return
 		}
-		if !verifyUser(uname, pword) {
+		if !verifyAccount(uname, pword) {
 			http.Error(w, "incorrect uname/pword", http.StatusForbidden)
 			return
 		}
@@ -181,22 +225,37 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
 	case "PUT":
 		w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
 
-		err = readAndUnmarshal(r, (*userEdit)(&users[i]))
-
+		b, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, "error parsing request body: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		// replace with entity.edit()
+		err = users.editEntity(userUuid, b)
+		if err != nil {
+			http.Error(w, "error editing entity: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		return
 	case "DELETE":
 		w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
-		users = append(users[:i], users[i+1:]...)
+
+		err = users.delEntity(userUuid)
+		if err != nil {
+			http.Error(w, "error deleting entity: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 	case "GET":
 		w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
 
 		var ej []byte
-		ej, err := json.Marshal(users[i])
+		u, err := users.getEntity(userUuid)
+		if err != nil {
+			http.Error(w, "could not find user", http.StatusInternalServerError)
+			return
+		}
+		ej, err = json.Marshal(u)
 		if err != nil {
 			http.Error(w, "error encoding JSON", http.StatusInternalServerError)
 			return
@@ -221,7 +280,7 @@ func verificationHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusUnauthorized)
 		return
 	}
-	if !verifyUser(uname, pword) {
+	if !verifyAccount(uname, pword) {
 		http.Error(w, "incorrect uname/pword", http.StatusForbidden)
 		return
 	}
@@ -234,4 +293,5 @@ func main() {
 	http.HandleFunc("/verification", verificationHandler)
 
 	http.ListenAndServe(":8080", nil)
+	fmt.Println("hello???")
 }
