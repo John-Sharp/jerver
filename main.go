@@ -134,128 +134,134 @@ func verifyAccount(uname string, pword string) bool {
 	return false
 }
 
-func usersHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "OPTIONS" {
-		var uname, pword, ok = r.BasicAuth()
-		if !ok {
+func entityApiHandlerFactory(ec entityCollection) (http.Handler, http.Handler) {
+	singularHandler := func(w http.ResponseWriter, r *http.Request) {
+		userUuid, err := uuid.FromString(r.URL.Path)
+
+		if r.Method != "OPTIONS" {
+			var uname, pword, ok = r.BasicAuth()
+			if !ok {
+				w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
+				w.Header().Add("WWW-Authenticate", "Basic realm=\"a\"")
+				http.Error(w, "", http.StatusUnauthorized)
+				return
+			}
+			if !verifyAccount(uname, pword) {
+				http.Error(w, "incorrect uname/pword", http.StatusForbidden)
+				return
+			}
+
+		}
+
+		if err != nil {
+			fmt.Println(err.Error())
+			http.Error(w, "error decoding UUID", http.StatusInternalServerError)
+			return
+		}
+
+		switch r.Method {
+		case "OPTIONS":
 			w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
-			w.Header().Add("WWW-Authenticate", "Basic realm=\"a\"")
-			http.Error(w, "", http.StatusUnauthorized)
+			w.Header().Add("Access-Control-Allow-Headers", "Authorization")
+			w.Header().Add("Access-Control-Allow-Methods", "GET, PUT, DELETE")
 			return
-		}
-
-		if !verifyAccount(uname, pword) {
-			http.Error(w, "incorrect uname/pword", http.StatusForbidden)
-			return
-		}
-	}
-
-	switch r.Method {
-	case "OPTIONS":
-		w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
-		w.Header().Add("Access-Control-Allow-Headers", "Authorization")
-		w.Header().Add("Access-Control-Allow-Methods", "GET, POST")
-		return
-	case "GET":
-		var ej []byte
-		ej, err := json.Marshal(users)
-		if err != nil {
-			http.Error(w, "error decoding JSON", http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
-		fmt.Fprint(w, string(ej))
-		return
-
-	case "POST":
-		w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
-
-		b, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, "error parsing request body: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		err = users.createEntity(b)
-		if err != nil {
-			http.Error(w, "error creating user: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-	default:
-	}
-}
-
-func userHandler(w http.ResponseWriter, r *http.Request) {
-	userUuid, err := uuid.FromString(r.URL.Path)
-
-	if r.Method != "OPTIONS" {
-		var uname, pword, ok = r.BasicAuth()
-		if !ok {
+		case "PUT":
 			w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
-			w.Header().Add("WWW-Authenticate", "Basic realm=\"a\"")
-			http.Error(w, "", http.StatusUnauthorized)
+
+			b, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, "error parsing request body: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			// replace with entity.edit()
+			err = ec.editEntity(userUuid, b)
+			if err != nil {
+				http.Error(w, "error editing entity: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+
 			return
-		}
-		if !verifyAccount(uname, pword) {
-			http.Error(w, "incorrect uname/pword", http.StatusForbidden)
-			return
+		case "DELETE":
+			w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
+
+			err = ec.delEntity(userUuid)
+			if err != nil {
+				http.Error(w, "error deleting entity: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+		case "GET":
+			w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
+
+			var ej []byte
+			u, err := ec.getEntity(userUuid)
+			if err != nil {
+				http.Error(w, "could not find user", http.StatusInternalServerError)
+				return
+			}
+			ej, err = json.Marshal(u)
+			if err != nil {
+				http.Error(w, "error encoding JSON", http.StatusInternalServerError)
+				return
+			}
+
+			fmt.Fprint(w, string(ej))
+		default:
 		}
 
 	}
 
-	if err != nil {
-		http.Error(w, "error decoding UUID", http.StatusInternalServerError)
-		return
+	pluralHandler := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "OPTIONS" {
+			var uname, pword, ok = r.BasicAuth()
+			if !ok {
+				w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
+				w.Header().Add("WWW-Authenticate", "Basic realm=\"a\"")
+				http.Error(w, "", http.StatusUnauthorized)
+				return
+			}
+
+			if !verifyAccount(uname, pword) {
+				http.Error(w, "incorrect uname/pword", http.StatusForbidden)
+				return
+			}
+		}
+
+		switch r.Method {
+		case "OPTIONS":
+			w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
+			w.Header().Add("Access-Control-Allow-Headers", "Authorization")
+			w.Header().Add("Access-Control-Allow-Methods", "GET, POST")
+			return
+		case "GET":
+			var ej []byte
+			ej, err := json.Marshal(users)
+			if err != nil {
+				http.Error(w, "error decoding JSON", http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
+			fmt.Fprint(w, string(ej))
+			return
+
+		case "POST":
+			w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
+
+			b, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, "error parsing request body: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			err = users.createEntity(b)
+			if err != nil {
+				http.Error(w, "error creating user: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+		default:
+		}
 	}
 
-	switch r.Method {
-	case "OPTIONS":
-		w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
-		w.Header().Add("Access-Control-Allow-Headers", "Authorization")
-		w.Header().Add("Access-Control-Allow-Methods", "GET, PUT, DELETE")
-		return
-	case "PUT":
-		w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
-
-		b, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, "error parsing request body: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		// replace with entity.edit()
-		err = users.editEntity(userUuid, b)
-		if err != nil {
-			http.Error(w, "error editing entity: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		return
-	case "DELETE":
-		w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
-
-		err = users.delEntity(userUuid)
-		if err != nil {
-			http.Error(w, "error deleting entity: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-	case "GET":
-		w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
-
-		var ej []byte
-		u, err := users.getEntity(userUuid)
-		if err != nil {
-			http.Error(w, "could not find user", http.StatusInternalServerError)
-			return
-		}
-		ej, err = json.Marshal(u)
-		if err != nil {
-			http.Error(w, "error encoding JSON", http.StatusInternalServerError)
-			return
-		}
-
-		fmt.Fprint(w, string(ej))
-	default:
-	}
+	return http.HandlerFunc(singularHandler), http.HandlerFunc(pluralHandler)
 }
 
 func verificationHandler(w http.ResponseWriter, r *http.Request) {
@@ -279,8 +285,10 @@ func verificationHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	http.HandleFunc("/users", usersHandler)
-	http.Handle("/users/", http.StripPrefix("/users/", http.HandlerFunc(userHandler)))
+	sHandler, pHandler := entityApiHandlerFactory(&users)
+
+	http.Handle("/users", pHandler)
+	http.Handle("/users/", http.StripPrefix("/users/", sHandler))
 
 	http.HandleFunc("/verification", verificationHandler)
 
