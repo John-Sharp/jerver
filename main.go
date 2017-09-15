@@ -285,5 +285,4 @@ func main() {
 	http.HandleFunc("/verification", verificationHandler)
 
 	http.ListenAndServe(":8080", nil)
-	fmt.Println("hello???")
 }
