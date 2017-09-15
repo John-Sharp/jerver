@@ -264,6 +264,14 @@ func entityApiHandlerFactory(ec entityCollection) (http.Handler, http.Handler) {
 	return http.HandlerFunc(singularHandler), http.HandlerFunc(pluralHandler)
 }
 
+func createApiRoute(path string, ec entityCollection) {
+	sHandler, pHandler := entityApiHandlerFactory(ec)
+
+	http.Handle(path, pHandler)
+	sPath := path + "/"
+	http.Handle(sPath, http.StripPrefix(sPath, sHandler))
+}
+
 func verificationHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
 	if r.Method == "OPTIONS" {
@@ -285,10 +293,7 @@ func verificationHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	sHandler, pHandler := entityApiHandlerFactory(&users)
-
-	http.Handle("/users", pHandler)
-	http.Handle("/users/", http.StripPrefix("/users/", sHandler))
+	createApiRoute("/users", &users)
 
 	http.HandleFunc("/verification", verificationHandler)
 
