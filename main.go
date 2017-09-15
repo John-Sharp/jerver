@@ -9,14 +9,6 @@ import (
 	"net/http"
 )
 
-func readAndUnmarshal(r *http.Request, x interface{}) error {
-	rb, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(rb, x)
-}
-
 type entityCollection interface {
 	createEntity(body []byte) error
 	getEntity(targetUuid uuid.UUID) (entity, error)
