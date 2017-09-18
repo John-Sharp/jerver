@@ -183,21 +183,6 @@ func entityApiHandlerFactory(ec entityCollection) (http.Handler, http.Handler) {
 	singularHandler := func(w http.ResponseWriter, r *http.Request) {
 		userUuid, err := uuid.FromString(r.URL.Path)
 
-		if r.Method != "OPTIONS" {
-			var uname, pword, ok = r.BasicAuth()
-			if !ok {
-				w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
-				w.Header().Add("WWW-Authenticate", "Basic realm=\"a\"")
-				http.Error(w, "", http.StatusUnauthorized)
-				return
-			}
-			if !verifyAccount(uname, pword) {
-				http.Error(w, "incorrect uname/pword", http.StatusForbidden)
-				return
-			}
-
-		}
-
 		if err != nil {
 			fmt.Println(err.Error())
 			http.Error(w, "error decoding UUID", http.StatusInternalServerError)
@@ -245,21 +230,6 @@ func entityApiHandlerFactory(ec entityCollection) (http.Handler, http.Handler) {
 	}
 
 	pluralHandler := func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "OPTIONS" {
-			var uname, pword, ok = r.BasicAuth()
-			if !ok {
-				w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
-				w.Header().Add("WWW-Authenticate", "Basic realm=\"a\"")
-				http.Error(w, "", http.StatusUnauthorized)
-				return
-			}
-
-			if !verifyAccount(uname, pword) {
-				http.Error(w, "incorrect uname/pword", http.StatusForbidden)
-				return
-			}
-		}
-
 		switch r.Method {
 		case "GET":
 			var ej []byte
@@ -296,22 +266,43 @@ func entityApiHandlerFactory(ec entityCollection) (http.Handler, http.Handler) {
 	return http.HandlerFunc(singularHandler), http.HandlerFunc(pluralHandler)
 }
 
+func applySecurity(handler http.Handler) http.Handler {
+	securityHandler := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "OPTIONS" {
+			var uname, pword, ok = r.BasicAuth()
+			if !ok {
+				w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
+				w.Header().Add("WWW-Authenticate", "Basic realm=\"a\"")
+				http.Error(w, "", http.StatusUnauthorized)
+				return
+			}
+			if !verifyAccount(uname, pword) {
+				http.Error(w, "incorrect uname/pword", http.StatusForbidden)
+				return
+			}
+		}
+		handler.ServeHTTP(w, r)
+	}
+
+	return http.HandlerFunc(securityHandler)
+}
+
 func applyCorsHeaders(handler http.Handler) http.Handler {
-    corsHandler := func(w http.ResponseWriter, r *http.Request) {
+	corsHandler := func(w http.ResponseWriter, r *http.Request) {
 
-        if r.Method == "OPTIONS" {
-            w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
-            w.Header().Add("Access-Control-Allow-Headers", "Authorization")
-            // TODO allow specification of the allowed methods
-            w.Header().Add("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE")
-            return
-        } else if r.Method == "GET" || r.Method == "PUT" || r.Method == "POST" || r.Method == "DELETE" {
+		if r.Method == "OPTIONS" {
 			w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
-            handler.ServeHTTP(w, r)
-        }
-    }
+			w.Header().Add("Access-Control-Allow-Headers", "Authorization")
+			// TODO allow specification of the allowed methods
+			w.Header().Add("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE")
+			return
+		} else if r.Method == "GET" || r.Method == "PUT" || r.Method == "POST" || r.Method == "DELETE" {
+			w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
+			handler.ServeHTTP(w, r)
+		}
+	}
 
-    return http.HandlerFunc(corsHandler)
+	return http.HandlerFunc(corsHandler)
 }
 
 // takes a route to an entity collection and an entity collection
@@ -320,11 +311,13 @@ func applyCorsHeaders(handler http.Handler) http.Handler {
 func createApiRoute(path string, ec entityCollection) {
 	sHandler, pHandler := entityApiHandlerFactory(ec)
 
-    // TODO factor out the security bits
+    // apply security authorization
+	sHandler = applySecurity(sHandler)
+	pHandler = applySecurity(pHandler)
 
-    // apply CORS headers
-    sHandler = applyCorsHeaders(sHandler)    
-    pHandler = applyCorsHeaders(pHandler)    
+	// apply CORS headers
+	sHandler = applyCorsHeaders(sHandler)
+	pHandler = applyCorsHeaders(pHandler)
 
 	http.Handle(path, pHandler)
 	sPath := path + "/"
