@@ -205,14 +205,7 @@ func entityApiHandlerFactory(ec entityCollection) (http.Handler, http.Handler) {
 		}
 
 		switch r.Method {
-		case "OPTIONS":
-			w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
-			w.Header().Add("Access-Control-Allow-Headers", "Authorization")
-			w.Header().Add("Access-Control-Allow-Methods", "GET, PUT, DELETE")
-			return
 		case "PUT":
-			w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
-
 			b, err := ioutil.ReadAll(r.Body)
 			if err != nil {
 				http.Error(w, "error parsing request body: "+err.Error(), http.StatusInternalServerError)
@@ -227,16 +220,12 @@ func entityApiHandlerFactory(ec entityCollection) (http.Handler, http.Handler) {
 
 			return
 		case "DELETE":
-			w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
-
 			err = ec.delEntity(userUuid)
 			if err != nil {
 				http.Error(w, "error deleting entity: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
 		case "GET":
-			w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
-
 			var ej []byte
 			u, err := ec.getEntity(userUuid)
 			if err != nil {
@@ -272,11 +261,6 @@ func entityApiHandlerFactory(ec entityCollection) (http.Handler, http.Handler) {
 		}
 
 		switch r.Method {
-		case "OPTIONS":
-			w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
-			w.Header().Add("Access-Control-Allow-Headers", "Authorization")
-			w.Header().Add("Access-Control-Allow-Methods", "GET, POST")
-			return
 		case "GET":
 			var ej []byte
 			c, err := ec.getCollection()
@@ -291,13 +275,10 @@ func entityApiHandlerFactory(ec entityCollection) (http.Handler, http.Handler) {
 				return
 			}
 
-			w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
 			fmt.Fprint(w, string(ej))
 			return
 
 		case "POST":
-			w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
-
 			b, err := ioutil.ReadAll(r.Body)
 			if err != nil {
 				http.Error(w, "error parsing request body: "+err.Error(), http.StatusInternalServerError)
@@ -315,11 +296,35 @@ func entityApiHandlerFactory(ec entityCollection) (http.Handler, http.Handler) {
 	return http.HandlerFunc(singularHandler), http.HandlerFunc(pluralHandler)
 }
 
-// takes a route to an entity collection and and entity collection
+func applyCorsHeaders(handler http.Handler) http.Handler {
+    corsHandler := func(w http.ResponseWriter, r *http.Request) {
+
+        if r.Method == "OPTIONS" {
+            w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
+            w.Header().Add("Access-Control-Allow-Headers", "Authorization")
+            // TODO allow specification of the allowed methods
+            w.Header().Add("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE")
+            return
+        } else if r.Method == "GET" || r.Method == "PUT" || r.Method == "POST" || r.Method == "DELETE" {
+			w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
+            handler.ServeHTTP(w, r)
+        }
+    }
+
+    return http.HandlerFunc(corsHandler)
+}
+
+// takes a route to an entity collection and an entity collection
 // and sets up handlers with defaultMux in net/http for entities of
 // this type
 func createApiRoute(path string, ec entityCollection) {
 	sHandler, pHandler := entityApiHandlerFactory(ec)
+
+    // TODO factor out the security bits
+
+    // apply CORS headers
+    sHandler = applyCorsHeaders(sHandler)    
+    pHandler = applyCorsHeaders(pHandler)    
 
 	http.Handle(path, pHandler)
 	sPath := path + "/"
