@@ -8,14 +8,14 @@ import (
 
 type thread struct {
 	Id      uuid.UUID
-    Title   string
-    NumMsgs uint
+	Title   string
+	NumMsgs uint
 }
 
 func (t *thread) verifyAndParseNew(b []byte) error {
-    var data struct {
-       Title *string 
-    }
+	var data struct {
+		Title *string
+	}
 
 	err := json.Unmarshal(b, &data)
 
@@ -23,33 +23,35 @@ func (t *thread) verifyAndParseNew(b []byte) error {
 		return err
 	}
 
-    if data.Title == nil {
-        return errors.New("thread Title not set when required")
-    }
+	if data.Title == nil {
+		return errors.New("thread Title not set when required")
+	}
 
-    t.Id = uuid.NewV4()
-    t.Title = *data.Title
-    return nil
+	t.Id = uuid.NewV4()
+	t.Title = *data.Title
+	return nil
 }
 
 func (t *thread) verifyAndParseEdit(b []byte) error {
 	bu := t.Id
-    bn := t.NumMsgs
+	bn := t.NumMsgs
 	err := json.Unmarshal(b, &t)
 	if err != nil {
 		return err
 	}
 	t.Id = bu
-    t.NumMsgs = bn
+	t.NumMsgs = bn
 	return nil
 }
 
 type threadNew thread
+
 func (t *threadNew) UnmarshalJSON(b []byte) error {
 	return (*thread)(t).verifyAndParseNew(b)
 }
 
 type threadEdit thread
+
 func (t *threadEdit) UnmarshalJSON(b []byte) error {
 	return (*thread)(t).verifyAndParseEdit(b)
 }
@@ -60,7 +62,7 @@ var threads threadCollection
 
 // implementation of entityCollectionInterface...
 
-func (tc *threadCollection) createEntity(body []byte) error {
+func (tc *threadCollection) createEntity(body []byte, urlPath string) error {
 	var t thread
 	err := json.Unmarshal(body, (*threadNew)(&t))
 	if err != nil {
@@ -80,7 +82,7 @@ func (tc *threadCollection) getEntity(targetUuid uuid.UUID) (entity, error) {
 	return nil, errors.New("could not find user")
 }
 
-func (tc *threadCollection) getCollection() (interface{}, error) {
+func (tc *threadCollection) getCollection(urlPath string) (interface{}, error) {
 	return tc, nil
 }
 

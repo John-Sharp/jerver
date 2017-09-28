@@ -11,16 +11,18 @@ import (
 // interface for generic collection of api entities
 type entityCollection interface {
 
-	// given a []byte containing JSON, should create an entity and
+	// given a []byte containing JSON, and the url path of
+	// the REST request should create an entity and
 	// add it to the collection
-	createEntity(body []byte) error
+	createEntity(body []byte, urlPath string) error
 
 	// given a Uuid should find entity in collection and return
 	getEntity(targetUuid uuid.UUID) (entity, error)
 
-	// return whole collection (in future maybe include filters
+	// return whole collection located at urlPath
+	// (in future maybe include filters
 	// in argument and return subset of collection)
-	getCollection() (interface{}, error)
+	getCollection(urlPath string) (interface{}, error)
 
 	// edit entity with Uuid in collection according to JSON
 	// in body
@@ -93,7 +95,7 @@ func entityApiHandlerFactory(ec entityCollection) (http.Handler, http.Handler) {
 		switch r.Method {
 		case "GET":
 			var ej []byte
-			c, err := ec.getCollection()
+			c, err := ec.getCollection(r.URL.Path)
 			if err != nil {
 				http.Error(w, "error retrieving collection", http.StatusInternalServerError)
 				return
@@ -114,7 +116,7 @@ func entityApiHandlerFactory(ec entityCollection) (http.Handler, http.Handler) {
 				http.Error(w, "error parsing request body: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
-			err = ec.createEntity(b)
+			err = ec.createEntity(b, r.URL.Path)
 			if err != nil {
 				http.Error(w, "error creating entity: "+err.Error(), http.StatusInternalServerError)
 				return

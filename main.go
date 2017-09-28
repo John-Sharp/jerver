@@ -6,7 +6,7 @@ import (
 
 func init() {
 	users = []user{}
-    threads = []thread{}
+	threads = []thread{}
 }
 
 // checks log-in credentials
@@ -62,7 +62,7 @@ func applyCorsHeaders(handler http.Handler) http.Handler {
 func createApiRoute(path string, ec entityCollection) {
 	sHandler, pHandler := entityApiHandlerFactory(ec)
 
-    // apply security authorization
+	// apply security authorization
 	sHandler = applySecurity(sHandler)
 	pHandler = applySecurity(pHandler)
 

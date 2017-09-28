@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/satori/go.uuid"
 )
 
@@ -83,8 +84,9 @@ var users userCollection
 
 // implementation of entityCollectionInterface...
 
-func (uc *userCollection) createEntity(body []byte) error {
+func (uc *userCollection) createEntity(body []byte, urlPath string) error {
 	var u user
+	fmt.Println(urlPath)
 	err := json.Unmarshal(body, (*userNew)(&u))
 	if err != nil {
 		return err
@@ -103,7 +105,7 @@ func (uc *userCollection) getEntity(targetUuid uuid.UUID) (entity, error) {
 	return nil, errors.New("could not find user")
 }
 
-func (uc *userCollection) getCollection() (interface{}, error) {
+func (uc *userCollection) getCollection(urlPath string) (interface{}, error) {
 	return uc, nil
 }
 
@@ -131,4 +133,3 @@ func (uc *userCollection) delEntity(targetUuid uuid.UUID) error {
 	}
 	return errors.New("could not find user to delete")
 }
-
