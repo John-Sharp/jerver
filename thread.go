@@ -62,7 +62,7 @@ var threads threadCollection
 
 // implementation of entityCollectionInterface...
 
-func (tc *threadCollection) createEntity(body []byte, urlPath string) error {
+func (tc *threadCollection) createEntity(parentEntityUuids map[string]uuid.UUID, body []byte) error {
 	var t thread
 	err := json.Unmarshal(body, (*threadNew)(&t))
 	if err != nil {
@@ -82,7 +82,7 @@ func (tc *threadCollection) getEntity(targetUuid uuid.UUID) (entity, error) {
 	return nil, errors.New("could not find user")
 }
 
-func (tc *threadCollection) getCollection(urlPath string) (interface{}, error) {
+func (tc *threadCollection) getCollection(parentEntityUuids map[string]uuid.UUID) (interface{}, error) {
 	return tc, nil
 }
 

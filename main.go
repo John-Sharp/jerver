@@ -7,6 +7,7 @@ import (
 func init() {
 	users = []user{}
 	threads = []thread{}
+	http.Handle("/", rootApiHandler)
 }
 
 // checks log-in credentials
@@ -54,25 +55,6 @@ func applyCorsHeaders(handler http.Handler) http.Handler {
 	}
 
 	return http.HandlerFunc(corsHandler)
-}
-
-// takes a route to an entity collection and an entity collection
-// and sets up handlers with defaultMux in net/http for entities of
-// this type
-func createApiRoute(path string, ec entityCollection) {
-	sHandler, pHandler := entityApiHandlerFactory(ec)
-
-	// apply security authorization
-	sHandler = applySecurity(sHandler)
-	pHandler = applySecurity(pHandler)
-
-	// apply CORS headers
-	sHandler = applyCorsHeaders(sHandler)
-	pHandler = applyCorsHeaders(pHandler)
-
-	http.Handle(path, pHandler)
-	sPath := path + "/"
-	http.Handle(sPath, http.StripPrefix(sPath, sHandler))
 }
 
 // basic part of api for validating a user
