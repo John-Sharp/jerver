@@ -172,7 +172,6 @@ var rootApiHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Reques
 	r.URL.Path = "/" + entityName
 	h, pattern := entityServeMux.Handler(r)
 	if pattern != "" {
-		fmt.Println("Dealing with a collection of ", entityName, "s")
 		r.URL.Path = pathBu
 		h.ServeHTTP(w, r)
 		return
@@ -186,8 +185,6 @@ var rootApiHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Reques
 	r.URL.Path = "/" + entityName + "/"
 	h, pattern = entityServeMux.Handler(r)
 	if pattern != "" {
-		fmt.Println("Dealing with a single ", entityName, "id: ", entityId)
-
 		r.URL.Path = pathBu
 		h.ServeHTTP(w, r)
 		return

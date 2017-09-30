@@ -81,6 +81,7 @@ func verificationHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	createApiRoute("/users", &users)
 	createApiRoute("/threads", &threads)
+	createApiRoute("/messages", &messages)
 
 	http.HandleFunc("/verification", verificationHandler)
 
