@@ -211,7 +211,7 @@ var rootApiHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Reques
 // takes a route to an entity collection and an entity collection
 // and sets up handlers with defaultMux in net/http for entities of
 // this type
-func createApiRoute(path string, ec entityCollection) {
+func createApiObject(ec entityCollection) {
 	sHandler, pHandler := entityApiHandlerFactory(ec)
 
 	// apply security authorization
@@ -222,7 +222,7 @@ func createApiRoute(path string, ec entityCollection) {
 	sHandler = applyCorsHeaders(sHandler)
 	pHandler = applyCorsHeaders(pHandler)
 
-	entityServeMux.Handle(path, pHandler)
-	sPath := path + "/"
+	entityServeMux.Handle("/"+ec.getRestName(), pHandler)
+	sPath := "/" + ec.getRestName() + "/"
 	entityServeMux.Handle(sPath, sHandler)
 }
