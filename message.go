@@ -51,23 +51,32 @@ var messages messageCollection
 
 // implementation of entityCollectionInterface...
 
-func (mc *messageCollection) createEntity(parentEntityUuids map[string]uuid.UUID, body []byte) error {
+func (mc *messageCollection) getRestName() string {
+	return "messages"
+}
+
+func (mc *messageCollection) getParentCollection() entityCollection {
+	return &threads
+}
+
+func (mc *messageCollection) createEntity(parentEntityUuids map[string]uuid.UUID, body []byte) (string, error) {
 	var m message
 
 	threadId, ok := parentEntityUuids["threads"]
 	if !ok {
-		return errors.New("no thread ID supplied")
+		return "", errors.New("no thread ID supplied")
 	}
 
 	err := json.Unmarshal(body, (*messageNew)(&m))
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	m.ThreadId = threadId
 
 	*mc = append(*mc, m)
-	return nil
+	path := "/" + mc.getParentCollection().getRestName() + "/" + threadId.String() + "/" + mc.getRestName() + "/" + m.Id.String()
+	return path, nil
 }
 
 func (mc *messageCollection) getEntity(targetUuid uuid.UUID) (entity, error) {

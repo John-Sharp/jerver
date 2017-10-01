@@ -18,10 +18,19 @@ var entityServeMux http.ServeMux
 // interface for generic collection of api entities
 type entityCollection interface {
 
+	// gets the name of the URL component referring to this entity
+	getRestName() string
+
+	// get a pointer to an entityCollection that is the parent
+	// of this entity collection (i.e. that's path in the API
+	// preceeds a mention of this entity)
+	getParentCollection() entityCollection
+
 	// given a []byte containing JSON, and the url path of
 	// the REST request should create an entity and
 	// add it to the collection
-	createEntity(parentEntityUuids map[string]uuid.UUID, body []byte) error
+	// returns the REST path to the newly created entity
+	createEntity(parentEntityUuids map[string]uuid.UUID, body []byte) (string, error)
 
 	// given a Uuid should find entity in collection and return
 	getEntity(targetUuid uuid.UUID) (entity, error)
@@ -144,11 +153,14 @@ func entityApiHandlerFactory(ec entityCollection) (http.Handler, http.Handler) {
 				http.Error(w, "error parsing request body: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
-			err = ec.createEntity(parentEntityUuids, b)
+			entityPath, err := ec.createEntity(parentEntityUuids, b)
 			if err != nil {
 				http.Error(w, "error creating entity: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
+
+			w.Header().Set("Location", entityPath)
+			w.WriteHeader(http.StatusCreated)
 		default:
 		}
 	}
@@ -181,7 +193,6 @@ var rootApiHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Reques
 	// final component is entity id and penultimate component
 	// is entity name
 	entityName = pathComponents[len(pathComponents)-2]
-	entityId := pathComponents[len(pathComponents)-1]
 	r.URL.Path = "/" + entityName + "/"
 	h, pattern = entityServeMux.Handler(r)
 	if pattern != "" {

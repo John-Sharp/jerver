@@ -62,14 +62,23 @@ var threads threadCollection
 
 // implementation of entityCollectionInterface...
 
-func (tc *threadCollection) createEntity(parentEntityUuids map[string]uuid.UUID, body []byte) error {
+func (tc *threadCollection) getRestName() string {
+	return "threads"
+}
+
+func (tc *threadCollection) getParentCollection() entityCollection {
+	return nil
+}
+
+func (tc *threadCollection) createEntity(parentEntityUuids map[string]uuid.UUID, body []byte) (string, error) {
 	var t thread
 	err := json.Unmarshal(body, (*threadNew)(&t))
 	if err != nil {
-		return err
+		return "", err
 	}
 	*tc = append(*tc, t)
-	return nil
+	path := "/" + tc.getRestName() + "/" + t.Id.String()
+	return path, nil
 }
 
 func (tc *threadCollection) getEntity(targetUuid uuid.UUID) (entity, error) {

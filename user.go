@@ -83,14 +83,23 @@ var users userCollection
 
 // implementation of entityCollectionInterface...
 
-func (uc *userCollection) createEntity(parentEntityUuids map[string]uuid.UUID, body []byte) error {
+func (uc *userCollection) getRestName() string {
+	return "users"
+}
+
+func (uc *userCollection) getParentCollection() entityCollection {
+	return nil
+}
+
+func (uc *userCollection) createEntity(parentEntityUuids map[string]uuid.UUID, body []byte) (string, error) {
 	var u user
 	err := json.Unmarshal(body, (*userNew)(&u))
 	if err != nil {
-		return err
+		return "", err
 	}
 	*uc = append(*uc, u)
-	return nil
+	path := "/" + uc.getRestName() + "/" + u.Uuid.String()
+	return path, nil
 }
 
 func (uc *userCollection) getEntity(targetUuid uuid.UUID) (entity, error) {
