@@ -50,6 +50,7 @@ func applyCorsHeaders(handler http.Handler) http.Handler {
 			return
 		} else if r.Method == "GET" || r.Method == "PUT" || r.Method == "POST" || r.Method == "DELETE" {
 			w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
+			w.Header().Add("Access-Control-Expose-Headers", "Location")
 			handler.ServeHTTP(w, r)
 		}
 	}
