@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/satori/go.uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // user is an api entity
@@ -11,6 +12,8 @@ type user struct {
 	Uuid       uuid.UUID
 	FirstName  string
 	SecondName string
+	Username   string
+	HashedPwd  []byte
 }
 
 // called during the jsonUnmarshal of a new user.
@@ -40,6 +43,36 @@ func (u *user) verifyAndParseNew(b []byte) error {
 	u.FirstName = *t.FirstName
 	u.SecondName = *t.SecondName
 	return nil
+}
+
+func (u *user) popNew(fname, sname, uname, pwd string) error {
+	hpwd, err := bcrypt.GenerateFromPassword([]byte(pwd), bcrypt.DefaultCost)
+
+	if err != nil {
+		return err
+	}
+
+	u.Uuid = uuid.NewV4()
+	u.FirstName = fname
+	u.SecondName = sname
+	u.Username = uname
+	u.HashedPwd = hpwd
+
+	return nil
+}
+
+func (uc *userCollection) verifyUser(uname, pwd string) (*user, error) {
+	var i int
+	for i, _ = range *uc {
+		if (*uc)[i].Username == uname {
+			if err := bcrypt.CompareHashAndPassword((*uc)[i].HashedPwd, []byte(pwd)); err != nil {
+				return nil, err
+			} else {
+				return &(*uc)[i], nil
+			}
+		}
+	}
+	return nil, errors.New("could not find user")
 }
 
 // called during the jsonUnmarshal of an edit of a user.

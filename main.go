@@ -5,14 +5,20 @@ import (
 )
 
 func init() {
-	users = []user{}
+	var u user
+	u.popNew("John", "Sharp", "jcsharp", "pwd")
+	users = []user{
+		u,
+	}
+
 	threads = []thread{}
 	http.Handle("/", rootApiHandler)
 }
 
 // checks log-in credentials
-func verifyAccount(uname string, pword string) bool {
-	if uname == "jcsharp" && pword == "pwd" {
+func verifyAccount(uname string, pwd string) bool {
+	user, _ := users.verifyUser(uname, pwd)
+	if user != nil {
 		return true
 	}
 	return false
