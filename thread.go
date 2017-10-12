@@ -70,7 +70,7 @@ func (tc *threadCollection) getParentCollection() entityCollection {
 	return nil
 }
 
-func (tc *threadCollection) createEntity(parentEntityUuids map[string]uuid.UUID, body []byte) (string, error) {
+func (tc *threadCollection) createEntity(user *user, parentEntityUuids map[string]uuid.UUID, body []byte) (string, error) {
 	var t thread
 	err := json.Unmarshal(body, (*threadNew)(&t))
 	if err != nil {

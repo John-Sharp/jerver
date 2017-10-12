@@ -9,6 +9,7 @@ import (
 type message struct {
 	Id       uuid.UUID
 	ThreadId uuid.UUID
+	AuthorId uuid.UUID
 	Content  string
 }
 
@@ -59,7 +60,7 @@ func (mc *messageCollection) getParentCollection() entityCollection {
 	return &threads
 }
 
-func (mc *messageCollection) createEntity(parentEntityUuids map[string]uuid.UUID, body []byte) (string, error) {
+func (mc *messageCollection) createEntity(user *user, parentEntityUuids map[string]uuid.UUID, body []byte) (string, error) {
 	var m message
 
 	threadId, ok := parentEntityUuids["threads"]
@@ -73,6 +74,7 @@ func (mc *messageCollection) createEntity(parentEntityUuids map[string]uuid.UUID
 	}
 
 	m.ThreadId = threadId
+	m.AuthorId = user.Uuid
 
 	*mc = append(*mc, m)
 	path := "/" + mc.getParentCollection().getRestName() + "/" + threadId.String() + "/" + mc.getRestName() + "/" + m.Id.String()

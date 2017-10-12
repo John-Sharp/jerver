@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 )
 
@@ -16,30 +17,42 @@ func init() {
 }
 
 // checks log-in credentials
-func verifyAccount(uname string, pwd string) bool {
-	user, _ := users.verifyUser(uname, pwd)
-	if user != nil {
-		return true
-	}
-	return false
+func verifyAccount(uname string, pwd string) (*user, error) {
+	return users.verifyUser(uname, pwd)
+}
+
+type key int
+
+const userKey key = 0
+
+// gets pointer to the user that created this
+// request, set by a call to `applySecurity`
+func getUserFromRequest(r *http.Request) *user {
+	return r.Context().Value(userKey).(*user)
 }
 
 func applySecurity(handler http.Handler) http.Handler {
 	securityHandler := func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "OPTIONS" {
-			var uname, pword, ok = r.BasicAuth()
-			if !ok {
-				w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
-				w.Header().Add("WWW-Authenticate", "Basic realm=\"a\"")
-				http.Error(w, "", http.StatusUnauthorized)
-				return
-			}
-			if !verifyAccount(uname, pword) {
-				http.Error(w, "incorrect uname/pword", http.StatusForbidden)
-				return
-			}
+		if r.Method == "OPTIONS" {
+			handler.ServeHTTP(w, r)
+			return
 		}
-		handler.ServeHTTP(w, r)
+
+		var uname, pword, ok = r.BasicAuth()
+		if !ok {
+			w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8090")
+			w.Header().Add("WWW-Authenticate", "Basic realm=\"a\"")
+			http.Error(w, "", http.StatusUnauthorized)
+			return
+		}
+
+		user, err := verifyAccount(uname, pword)
+		if err != nil {
+			http.Error(w, "incorrect uname/pword", http.StatusForbidden)
+			return
+		}
+		ctx := context.WithValue(r.Context(), userKey, user)
+		handler.ServeHTTP(w, r.WithContext(ctx))
 	}
 
 	return http.HandlerFunc(securityHandler)
@@ -79,7 +92,8 @@ func verificationHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusUnauthorized)
 		return
 	}
-	if !verifyAccount(uname, pword) {
+	_, err := verifyAccount(uname, pword)
+	if err != nil {
 		http.Error(w, "incorrect uname/pword", http.StatusForbidden)
 		return
 	}

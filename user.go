@@ -124,7 +124,7 @@ func (uc *userCollection) getParentCollection() entityCollection {
 	return nil
 }
 
-func (uc *userCollection) createEntity(parentEntityUuids map[string]uuid.UUID, body []byte) (string, error) {
+func (uc *userCollection) createEntity(creatingUser *user, parentEntityUuids map[string]uuid.UUID, body []byte) (string, error) {
 	var u user
 	err := json.Unmarshal(body, (*userNew)(&u))
 	if err != nil {

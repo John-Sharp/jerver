@@ -30,7 +30,7 @@ type entityCollection interface {
 	// the REST request should create an entity and
 	// add it to the collection
 	// returns the REST path to the newly created entity
-	createEntity(parentEntityUuids map[string]uuid.UUID, body []byte) (string, error)
+	createEntity(user *user, parentEntityUuids map[string]uuid.UUID, body []byte) (string, error)
 
 	// given a Uuid should find entity in collection and return
 	getEntity(targetUuid uuid.UUID) (entity, error)
@@ -153,7 +153,7 @@ func entityApiHandlerFactory(ec entityCollection) (http.Handler, http.Handler) {
 				http.Error(w, "error parsing request body: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
-			entityPath, err := ec.createEntity(parentEntityUuids, b)
+			entityPath, err := ec.createEntity(getUserFromRequest(r), parentEntityUuids, b)
 			if err != nil {
 				http.Error(w, "error creating entity: "+err.Error(), http.StatusInternalServerError)
 				return
