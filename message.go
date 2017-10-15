@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/satori/go.uuid"
 )
 
@@ -76,6 +77,13 @@ func (mc *messageCollection) createEntity(user *user, parentEntityUuids map[stri
 	m.ThreadId = threadId
 	m.AuthorId = user.Uuid
 
+	// increase parent thread's number of messages by one
+	threadEntity, err := threads.getEntity(threadId)
+	if err != nil {
+		return "", err
+	}
+	threadEntity.(*thread).NumMsgs += 1
+
 	*mc = append(*mc, m)
 	path := "/" + mc.getParentCollection().getRestName() + "/" + threadId.String() + "/" + mc.getRestName() + "/" + m.Id.String()
 	return path, nil
@@ -126,6 +134,13 @@ func (mc *messageCollection) delEntity(targetUuid uuid.UUID) error {
 	var i int
 	for i, _ = range *mc {
 		if uuid.Equal((*mc)[i].Id, targetUuid) {
+			threadEntity, err := threads.getEntity((*mc)[i].ThreadId)
+			if err != nil {
+				fmt.Println("WARNING: Could not find parent thread when deleting")
+			} else {
+				threadEntity.(*thread).NumMsgs -= 1
+			}
+
 			(*mc) = append((*mc)[:i], (*mc)[i+1:]...)
 			return nil
 		}
