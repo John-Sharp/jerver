@@ -145,8 +145,8 @@ func (uc *userCollection) getEntity(targetUuid uuid.UUID) (entity, error) {
 	return nil, errors.New("could not find user")
 }
 
-func (uc *userCollection) getCollection(parentEntityUuids map[string]uuid.UUID) (interface{}, error) {
-	return uc, nil
+func (uc *userCollection) getCollection(parentEntityUuids map[string]uuid.UUID, filter collFilter) (collection, error) {
+	return collection{TotalEntities: 0, Entities: uc}, nil
 }
 
 func (uc *userCollection) editEntity(targetUuid uuid.UUID, body []byte) error {

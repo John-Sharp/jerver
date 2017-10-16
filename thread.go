@@ -91,8 +91,31 @@ func (tc *threadCollection) getEntity(targetUuid uuid.UUID) (entity, error) {
 	return nil, errors.New("could not find user")
 }
 
-func (tc *threadCollection) getCollection(parentEntityUuids map[string]uuid.UUID) (interface{}, error) {
-	return tc, nil
+func (tc *threadCollection) getCollection(parentEntityUuids map[string]uuid.UUID, filter collFilter) (collection, error) {
+	tSubColl := []thread{}
+
+	count := uint64(10)
+	page := int64(0)
+	if filter.page != nil {
+		page = *filter.page
+	}
+	if filter.count != nil {
+		count = *filter.count
+	}
+	offset := page * int64(count)
+
+	i := uint(0)
+	for _, t := range *tc {
+		if int64(i) >= int64(count)+offset {
+			break
+		}
+		if int64(i) >= offset {
+			tSubColl = append(tSubColl, t)
+		}
+		i++
+	}
+
+	return collection{TotalEntities: i, Entities: tSubColl}, nil
 }
 
 func (tc *threadCollection) editEntity(targetUuid uuid.UUID, body []byte) error {

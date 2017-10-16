@@ -6,6 +6,8 @@ import (
 	"github.com/satori/go.uuid"
 	"io/ioutil"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -14,6 +16,106 @@ import (
 // url it receives and look for entities to call
 // the handler of
 var entityServeMux http.ServeMux
+
+type order uint
+
+const (
+	ASC order = iota
+	DESC
+)
+
+type sortObj struct {
+	sortOrder order
+	fieldName string
+}
+
+type compType uint
+
+const (
+	LT compType = iota
+	LTEQ
+	EQ
+	GT
+	GTEQ
+)
+
+type propFilterObj struct {
+	comp      compType
+	fieldName string
+	value     string
+}
+
+type collFilter struct {
+	page        *int64
+	count       *uint64
+	sort        []sortObj
+	propFilters []propFilterObj
+}
+
+func (cf *collFilter) popSort(sortString string) {
+	sortStringArray := strings.Split(sortString, ",")
+	for _, ss := range sortStringArray {
+		if ss[:4] == "asc." {
+			cf.sort = append(cf.sort, sortObj{sortOrder: ASC, fieldName: ss[4:]})
+		} else if ss[:5] == "desc." {
+			cf.sort = append(cf.sort, sortObj{sortOrder: DESC, fieldName: ss[5:]})
+		} else {
+			fmt.Println("WARNING: failed to parse 'sort' query parameter")
+		}
+	}
+}
+
+func (cf *collFilter) popFilter(filterQuery url.Values) {
+	for k, va := range filterQuery {
+		for _, v := range va {
+			if v[:3] == "lt." {
+				cf.propFilters = append(cf.propFilters, propFilterObj{comp: LT, fieldName: k, value: v[:3]})
+			} else if v[:5] == "lteq." {
+				cf.propFilters = append(cf.propFilters, propFilterObj{comp: LTEQ, fieldName: k, value: v[:5]})
+			} else if v[:3] == "eq." {
+				cf.propFilters = append(cf.propFilters, propFilterObj{comp: EQ, fieldName: k, value: v[:3]})
+			} else if v[:3] == "gt." {
+				cf.propFilters = append(cf.propFilters, propFilterObj{comp: GT, fieldName: k, value: v[:3]})
+			} else if v[:5] == "gteq." {
+				cf.propFilters = append(cf.propFilters, propFilterObj{comp: GTEQ, fieldName: k, value: v[:5]})
+			} else {
+				fmt.Println("WARNING: failed to parse filter query parameter, '" + k + "'")
+			}
+		}
+	}
+}
+
+func (cf *collFilter) pop(r *http.Request) error {
+	q := r.URL.Query()
+	pageS, ok := q["page"]
+	if ok {
+		page, err := strconv.ParseInt(pageS[0], 10, 64)
+		if err != nil {
+			fmt.Println("WARNING: failed to parse 'page' query parameter")
+		}
+		cf.page = &page
+	}
+	delete(q, "page")
+
+	countS, ok := q["count"]
+	if ok {
+		count, err := strconv.ParseUint(countS[0], 10, 64)
+		if err != nil {
+			fmt.Println("WARNING: failed to parse 'count' query parameter")
+		}
+		cf.count = &count
+	}
+	delete(q, "count")
+
+	sortS, ok := q["sort"]
+	if ok {
+		cf.popSort(sortS[0])
+	}
+	delete(q, "sort")
+
+	cf.popFilter(q)
+	return nil
+}
 
 // interface for generic collection of api entities
 type entityCollection interface {
@@ -35,10 +137,10 @@ type entityCollection interface {
 	// given a Uuid should find entity in collection and return
 	getEntity(targetUuid uuid.UUID) (entity, error)
 
-	// return whole collection located at urlPath
-	// (in future maybe include filters
-	// in argument and return subset of collection)
-	getCollection(parentEntityUuids map[string]uuid.UUID) (interface{}, error)
+	// return collection having parent entities as specified
+	// by parentEntityUuids, and obeying the filters specified
+	// in filter
+	getCollection(parentEntityUuids map[string]uuid.UUID, filter collFilter) (collection, error)
 
 	// edit entity with Uuid in collection according to JSON
 	// in body
@@ -46,6 +148,11 @@ type entityCollection interface {
 
 	// delete entity with targetUuid
 	delEntity(targetUuid uuid.UUID) error
+}
+
+type collection struct {
+	TotalEntities uint
+	Entities      interface{}
 }
 
 // type definition of a generic api entity
@@ -132,7 +239,9 @@ func entityApiHandlerFactory(ec entityCollection) (http.Handler, http.Handler) {
 		switch r.Method {
 		case "GET":
 			var ej []byte
-			c, err := ec.getCollection(parentEntityUuids)
+			var cf collFilter
+			err = cf.pop(r)
+			c, err := ec.getCollection(parentEntityUuids, cf)
 			if err != nil {
 				http.Error(w, "error retrieving collection", http.StatusInternalServerError)
 				return

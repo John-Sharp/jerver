@@ -99,21 +99,38 @@ func (mc *messageCollection) getEntity(targetUuid uuid.UUID) (entity, error) {
 	return nil, errors.New("could not find message")
 }
 
-func (mc *messageCollection) getCollection(parentEntityUuids map[string]uuid.UUID) (interface{}, error) {
+func (mc *messageCollection) getCollection(parentEntityUuids map[string]uuid.UUID, filter collFilter) (collection, error) {
 	threadId, ok := parentEntityUuids["threads"]
 	if !ok {
-		return nil, errors.New("no thread ID supplied")
+		return collection{}, errors.New("no thread ID supplied")
 	}
 
-	var mSubColl []message = []message{}
+	mSubColl := []message{}
 
+	count := uint64(10)
+	page := int64(0)
+	if filter.page != nil {
+		page = *filter.page
+	}
+	if filter.count != nil {
+		count = *filter.count
+	}
+	offset := page * int64(count)
+
+	i := uint(0)
 	for _, m := range *mc {
 		if uuid.Equal(m.ThreadId, threadId) {
-			mSubColl = append(mSubColl, m)
+			if int64(i) >= int64(count)+offset {
+				break
+			}
+			if int64(i) >= offset {
+				mSubColl = append(mSubColl, m)
+			}
+			i++
 		}
 	}
 
-	return mSubColl, nil
+	return collection{TotalEntities: i, Entities: mSubColl}, nil
 }
 
 func (mc *messageCollection) editEntity(targetUuid uuid.UUID, body []byte) error {
