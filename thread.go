@@ -63,26 +63,26 @@ var threads threadCollection
 
 // implementation of entityCollectionInterface...
 
-func (tc *threadCollection) getRestName() string {
+func (tc *threadCollection) GetRestName() string {
 	return "threads"
 }
 
-func (tc *threadCollection) getParentCollection() entityCollection {
+func (tc *threadCollection) GetParentCollection() entitycoll.EntityCollection {
 	return nil
 }
 
-func (tc *threadCollection) createEntity(user *user, parentEntityUuids map[string]uuid.UUID, body []byte) (string, error) {
+func (tc *threadCollection) CreateEntity(requestor entitycoll.Entity, parentEntityUuids map[string]uuid.UUID, body []byte) (string, error) {
 	var t thread
 	err := json.Unmarshal(body, (*threadNew)(&t))
 	if err != nil {
 		return "", err
 	}
 	*tc = append(*tc, t)
-	path := "/" + tc.getRestName() + "/" + t.Id.String()
+	path := "/" + tc.GetRestName() + "/" + t.Id.String()
 	return path, nil
 }
 
-func (tc *threadCollection) getEntity(targetUuid uuid.UUID) (entitycoll.Entity, error) {
+func (tc *threadCollection) GetEntity(targetUuid uuid.UUID) (entitycoll.Entity, error) {
 	var i int
 	for i, _ = range *tc {
 		if uuid.Equal((*tc)[i].Id, targetUuid) {
@@ -92,16 +92,16 @@ func (tc *threadCollection) getEntity(targetUuid uuid.UUID) (entitycoll.Entity, 
 	return nil, errors.New("could not find user")
 }
 
-func (tc *threadCollection) getCollection(parentEntityUuids map[string]uuid.UUID, filter collFilter) (collection, error) {
+func (tc *threadCollection) GetCollection(parentEntityUuids map[string]uuid.UUID, filter entitycoll.CollFilter) (entitycoll.Collection, error) {
 	tSubColl := []thread{}
 
 	count := uint64(10)
 	page := int64(0)
-	if filter.page != nil {
-		page = *filter.page
+	if filter.Page != nil {
+		page = *filter.Page
 	}
-	if filter.count != nil {
-		count = *filter.count
+	if filter.Count != nil {
+		count = *filter.Count
 	}
 	offset := page * int64(count)
 
@@ -116,11 +116,11 @@ func (tc *threadCollection) getCollection(parentEntityUuids map[string]uuid.UUID
 		i++
 	}
 
-	return collection{TotalEntities: i, Entities: tSubColl}, nil
+	return entitycoll.Collection{TotalEntities: i, Entities: tSubColl}, nil
 }
 
-func (tc *threadCollection) editEntity(targetUuid uuid.UUID, body []byte) error {
-	e, err := tc.getEntity(targetUuid)
+func (tc *threadCollection) EditEntity(targetUuid uuid.UUID, body []byte) error {
+	e, err := tc.GetEntity(targetUuid)
 	if err != nil {
 		return err
 	}
@@ -133,7 +133,7 @@ func (tc *threadCollection) editEntity(targetUuid uuid.UUID, body []byte) error 
 	return json.Unmarshal(body, (*threadEdit)(u))
 }
 
-func (tc *threadCollection) delEntity(targetUuid uuid.UUID) error {
+func (tc *threadCollection) DelEntity(targetUuid uuid.UUID) error {
 	var i int
 	for i, _ = range *tc {
 		if uuid.Equal((*tc)[i].Id, targetUuid) {

@@ -117,26 +117,26 @@ var users userCollection
 
 // implementation of entityCollectionInterface...
 
-func (uc *userCollection) getRestName() string {
+func (uc *userCollection) GetRestName() string {
 	return "users"
 }
 
-func (uc *userCollection) getParentCollection() entityCollection {
+func (uc *userCollection) GetParentCollection() entitycoll.EntityCollection {
 	return nil
 }
 
-func (uc *userCollection) createEntity(creatingUser *user, parentEntityUuids map[string]uuid.UUID, body []byte) (string, error) {
+func (uc *userCollection) CreateEntity(requestor entitycoll.Entity, parentEntityUuids map[string]uuid.UUID, body []byte) (string, error) {
 	var u user
 	err := json.Unmarshal(body, (*userNew)(&u))
 	if err != nil {
 		return "", err
 	}
 	*uc = append(*uc, u)
-	path := "/" + uc.getRestName() + "/" + u.Uuid.String()
+	path := "/" + uc.GetRestName() + "/" + u.Uuid.String()
 	return path, nil
 }
 
-func (uc *userCollection) getEntity(targetUuid uuid.UUID) (entitycoll.Entity, error) {
+func (uc *userCollection) GetEntity(targetUuid uuid.UUID) (entitycoll.Entity, error) {
 	var i int
 	for i, _ = range *uc {
 		if uuid.Equal((*uc)[i].Uuid, targetUuid) {
@@ -146,12 +146,12 @@ func (uc *userCollection) getEntity(targetUuid uuid.UUID) (entitycoll.Entity, er
 	return nil, errors.New("could not find user")
 }
 
-func (uc *userCollection) getCollection(parentEntityUuids map[string]uuid.UUID, filter collFilter) (collection, error) {
-	return collection{TotalEntities: 0, Entities: uc}, nil
+func (uc *userCollection) GetCollection(parentEntityUuids map[string]uuid.UUID, filter entitycoll.CollFilter) (entitycoll.Collection, error) {
+	return entitycoll.Collection{TotalEntities: 0, Entities: uc}, nil
 }
 
-func (uc *userCollection) editEntity(targetUuid uuid.UUID, body []byte) error {
-	e, err := uc.getEntity(targetUuid)
+func (uc *userCollection) EditEntity(targetUuid uuid.UUID, body []byte) error {
+	e, err := uc.GetEntity(targetUuid)
 	if err != nil {
 		return err
 	}
@@ -164,7 +164,7 @@ func (uc *userCollection) editEntity(targetUuid uuid.UUID, body []byte) error {
 	return json.Unmarshal(body, (*userEdit)(u))
 }
 
-func (uc *userCollection) delEntity(targetUuid uuid.UUID) error {
+func (uc *userCollection) DelEntity(targetUuid uuid.UUID) error {
 	var i int
 	for i, _ = range *uc {
 		if uuid.Equal((*uc)[i].Uuid, targetUuid) {

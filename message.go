@@ -54,15 +54,15 @@ var messages messageCollection
 
 // implementation of entityCollectionInterface...
 
-func (mc *messageCollection) getRestName() string {
+func (mc *messageCollection) GetRestName() string {
 	return "messages"
 }
 
-func (mc *messageCollection) getParentCollection() entityCollection {
+func (mc *messageCollection) GetParentCollection() entitycoll.EntityCollection {
 	return &threads
 }
 
-func (mc *messageCollection) createEntity(user *user, parentEntityUuids map[string]uuid.UUID, body []byte) (string, error) {
+func (mc *messageCollection) CreateEntity(requestor entitycoll.Entity, parentEntityUuids map[string]uuid.UUID, body []byte) (string, error) {
 	var m message
 
 	threadId, ok := parentEntityUuids["threads"]
@@ -76,21 +76,22 @@ func (mc *messageCollection) createEntity(user *user, parentEntityUuids map[stri
 	}
 
 	m.ThreadId = threadId
+    user := requestor.(*user)
 	m.AuthorId = user.Uuid
 
 	// increase parent thread's number of messages by one
-	threadEntity, err := threads.getEntity(threadId)
+	threadEntity, err := threads.GetEntity(threadId)
 	if err != nil {
 		return "", err
 	}
 	threadEntity.(*thread).NumMsgs += 1
 
 	*mc = append(*mc, m)
-	path := "/" + mc.getParentCollection().getRestName() + "/" + threadId.String() + "/" + mc.getRestName() + "/" + m.Id.String()
+	path := "/" + mc.GetParentCollection().GetRestName() + "/" + threadId.String() + "/" + mc.GetRestName() + "/" + m.Id.String()
 	return path, nil
 }
 
-func (mc *messageCollection) getEntity(targetUuid uuid.UUID) (entitycoll.Entity, error) {
+func (mc *messageCollection) GetEntity(targetUuid uuid.UUID) (entitycoll.Entity, error) {
 	var i int
 	for i, _ = range *mc {
 		if uuid.Equal((*mc)[i].Id, targetUuid) {
@@ -100,21 +101,21 @@ func (mc *messageCollection) getEntity(targetUuid uuid.UUID) (entitycoll.Entity,
 	return nil, errors.New("could not find message")
 }
 
-func (mc *messageCollection) getCollection(parentEntityUuids map[string]uuid.UUID, filter collFilter) (collection, error) {
+func (mc *messageCollection) GetCollection(parentEntityUuids map[string]uuid.UUID, filter entitycoll.CollFilter) (entitycoll.Collection, error) {
 	threadId, ok := parentEntityUuids["threads"]
 	if !ok {
-		return collection{}, errors.New("no thread ID supplied")
+		return entitycoll.Collection{}, errors.New("no thread ID supplied")
 	}
 
 	mSubColl := []message{}
 
 	count := uint64(10)
 	page := int64(0)
-	if filter.page != nil {
-		page = *filter.page
+	if filter.Page != nil {
+		page = *filter.Page
 	}
-	if filter.count != nil {
-		count = *filter.count
+	if filter.Count != nil {
+		count = *filter.Count
 	}
 	offset := page * int64(count)
 
@@ -131,11 +132,11 @@ func (mc *messageCollection) getCollection(parentEntityUuids map[string]uuid.UUI
 		}
 	}
 
-	return collection{TotalEntities: i, Entities: mSubColl}, nil
+	return entitycoll.Collection{TotalEntities: i, Entities: mSubColl}, nil
 }
 
-func (mc *messageCollection) editEntity(targetUuid uuid.UUID, body []byte) error {
-	e, err := mc.getEntity(targetUuid)
+func (mc *messageCollection) EditEntity(targetUuid uuid.UUID, body []byte) error {
+	e, err := mc.GetEntity(targetUuid)
 	if err != nil {
 		return err
 	}
@@ -148,11 +149,11 @@ func (mc *messageCollection) editEntity(targetUuid uuid.UUID, body []byte) error
 	return json.Unmarshal(body, (*messageEdit)(m))
 }
 
-func (mc *messageCollection) delEntity(targetUuid uuid.UUID) error {
+func (mc *messageCollection) DelEntity(targetUuid uuid.UUID) error {
 	var i int
 	for i, _ = range *mc {
 		if uuid.Equal((*mc)[i].Id, targetUuid) {
-			threadEntity, err := threads.getEntity((*mc)[i].ThreadId)
+			threadEntity, err := threads.GetEntity((*mc)[i].ThreadId)
 			if err != nil {
 				fmt.Println("WARNING: Could not find parent thread when deleting")
 			} else {
