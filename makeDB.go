@@ -3,25 +3,25 @@ package main
 import (
 	"database/sql"
 	_ "github.com/mattn/go-sqlite3"
-	"log"
-	"os"
 	"github.com/satori/go.uuid"
 	"golang.org/x/crypto/bcrypt"
+	"log"
+	"os"
 )
 
 type userBaseDetails struct {
-    FirstName string
-    SecondName string
-    Username string
-    Pwd string
+	FirstName  string
+	SecondName string
+	Username   string
+	Pwd        string
 }
 
 var users = []userBaseDetails{
-    {"Robert", "Gascoyne-Cecil", "salisbury", "1895"},
-    {"Arthur", "Balfour", "abalfour", "1902"},
-    {"Henry", "Campbell-Bannerman", "hcb", "1905"},
-    {"Herbert", "Asquith", "hasquith", "1908"},
-    {"David", "Lloyd George", "dlg", "1916"},
+	{"Robert", "Gascoyne-Cecil", "salisbury", "1895"},
+	{"Arthur", "Balfour", "abalfour", "1902"},
+	{"Henry", "Campbell-Bannerman", "hcb", "1905"},
+	{"Herbert", "Asquith", "hasquith", "1908"},
+	{"David", "Lloyd George", "dlg", "1916"},
 }
 
 func main() {
@@ -63,14 +63,14 @@ func main() {
 		log.Fatal(err)
 	}
 	defer stmt.Close()
-    for _, user := range(users) {
-        hpwd, err := bcrypt.GenerateFromPassword([]byte(user.Pwd), bcrypt.DefaultCost)
-        if err != nil {
-            log.Fatal(err)
-        }
+	for _, user := range users {
+		hpwd, err := bcrypt.GenerateFromPassword([]byte(user.Pwd), bcrypt.DefaultCost)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		_, err = stmt.Exec(uuid.NewV4().Bytes(), user.FirstName,
-        user.SecondName, user.Username, hpwd)
+			user.SecondName, user.Username, hpwd)
 		if err != nil {
 			log.Fatal(err)
 		}

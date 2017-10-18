@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"github.com/john-sharp/entitycoll"
 	"github.com/satori/go.uuid"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -61,14 +62,14 @@ func (u *user) popNew(fname, sname, uname, pwd string) error {
 	return nil
 }
 
-func (uc *userCollection) verifyUser(uname, pwd string) (*user, error) {
+func (uc *userCollection) verifyUser(uname, pwd string) (entitycoll.Entity, error) {
 	var i int
 	for i, _ = range *uc {
 		if (*uc)[i].Username == uname {
 			if err := bcrypt.CompareHashAndPassword((*uc)[i].HashedPwd, []byte(pwd)); err != nil {
 				return nil, err
 			} else {
-				return &(*uc)[i], nil
+				return (&(*uc)[i]), nil
 			}
 		}
 	}
@@ -135,7 +136,7 @@ func (uc *userCollection) createEntity(creatingUser *user, parentEntityUuids map
 	return path, nil
 }
 
-func (uc *userCollection) getEntity(targetUuid uuid.UUID) (entity, error) {
+func (uc *userCollection) getEntity(targetUuid uuid.UUID) (entitycoll.Entity, error) {
 	var i int
 	for i, _ = range *uc {
 		if uuid.Equal((*uc)[i].Uuid, targetUuid) {

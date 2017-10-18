@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"net/http"
+
+	"github.com/john-sharp/entitycoll"
 )
 
 func init() {
@@ -16,8 +18,15 @@ func init() {
 	http.Handle("/", rootApiHandler)
 }
 
-// checks log-in credentials
+// TODO deprecate
+// checks log-in credentials SOON TO BE DEPRECATED
 func verifyAccount(uname string, pwd string) (*user, error) {
+	e, err := users.verifyUser(uname, pwd)
+	u := (e).(*user)
+	return u, err
+}
+
+func authorizeUser(uname, pwd string) (entitycoll.Entity, error) {
 	return users.verifyUser(uname, pwd)
 }
 
@@ -100,6 +109,7 @@ func verificationHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	entitycoll.SetRequestorAuthFn(authorizeUser)
 	createApiObject(&users)
 	createApiObject(&threads)
 	createApiObject(&messages)

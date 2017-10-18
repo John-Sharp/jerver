@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"github.com/john-sharp/entitycoll"
 	"github.com/satori/go.uuid"
 )
 
@@ -81,7 +82,7 @@ func (tc *threadCollection) createEntity(user *user, parentEntityUuids map[strin
 	return path, nil
 }
 
-func (tc *threadCollection) getEntity(targetUuid uuid.UUID) (entity, error) {
+func (tc *threadCollection) getEntity(targetUuid uuid.UUID) (entitycoll.Entity, error) {
 	var i int
 	for i, _ = range *tc {
 		if uuid.Equal((*tc)[i].Id, targetUuid) {

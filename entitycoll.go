@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/john-sharp/entitycoll"
 )
 
 // ServeMux for storing direct paths to entities
@@ -135,7 +137,7 @@ type entityCollection interface {
 	createEntity(user *user, parentEntityUuids map[string]uuid.UUID, body []byte) (string, error)
 
 	// given a Uuid should find entity in collection and return
-	getEntity(targetUuid uuid.UUID) (entity, error)
+	getEntity(targetUuid uuid.UUID) (entitycoll.Entity, error)
 
 	// return collection having parent entities as specified
 	// by parentEntityUuids, and obeying the filters specified
@@ -154,9 +156,6 @@ type collection struct {
 	TotalEntities uint
 	Entities      interface{}
 }
-
-// type definition of a generic api entity
-type entity interface{}
 
 // returns two http.Handlers for dealing with REST API requests
 // manipulating entities in entity collection 'ec'

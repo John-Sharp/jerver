@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/john-sharp/entitycoll"
 	"github.com/satori/go.uuid"
 )
 
@@ -89,7 +90,7 @@ func (mc *messageCollection) createEntity(user *user, parentEntityUuids map[stri
 	return path, nil
 }
 
-func (mc *messageCollection) getEntity(targetUuid uuid.UUID) (entity, error) {
+func (mc *messageCollection) getEntity(targetUuid uuid.UUID) (entitycoll.Entity, error) {
 	var i int
 	for i, _ = range *mc {
 		if uuid.Equal((*mc)[i].Id, targetUuid) {
