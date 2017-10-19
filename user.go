@@ -196,7 +196,7 @@ func (uc *userCollection) GetEntity(targetUuid uuid.UUID) (entitycoll.Entity, er
 }
 
 func (uc *userCollection) GetCollection(parentEntityUuids map[string]uuid.UUID, filter entitycoll.CollFilter) (entitycoll.Collection, error) {
-	return entitycoll.Collection{TotalEntities: 0, Entities: uc}, nil
+	return entitycoll.Collection{}, nil
 }
 
 func (uc *userCollection) EditEntity(targetUuid uuid.UUID, body []byte) error {

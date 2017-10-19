@@ -1,16 +1,23 @@
 package main
 
 import (
+	"database/sql"
+	_ "github.com/mattn/go-sqlite3"
 	"encoding/json"
 	"errors"
 	"github.com/john-sharp/entitycoll"
 	"github.com/satori/go.uuid"
+    "log"
 )
 
 type thread struct {
 	Id      uuid.UUID
 	Title   string
 	NumMsgs uint
+}
+
+type threadEdit struct {
+    Title  *string
 }
 
 func (t *thread) verifyAndParseNew(b []byte) error {
@@ -33,17 +40,17 @@ func (t *thread) verifyAndParseNew(b []byte) error {
 	return nil
 }
 
-func (t *thread) verifyAndParseEdit(b []byte) error {
-	bu := t.Id
-	bn := t.NumMsgs
-	err := json.Unmarshal(b, &t)
-	if err != nil {
-		return err
-	}
-	t.Id = bu
-	t.NumMsgs = bn
-	return nil
-}
+// func (t *thread) verifyAndParseEdit(b []byte) error {
+//	bu := t.Id
+//	bn := t.NumMsgs
+//	err := json.Unmarshal(b, &t)
+//	if err != nil {
+//		return err
+//	}
+//	t.Id = bu
+//	t.NumMsgs = bn
+//	return nil
+// }
 
 type threadNew thread
 
@@ -51,13 +58,46 @@ func (t *threadNew) UnmarshalJSON(b []byte) error {
 	return (*thread)(t).verifyAndParseNew(b)
 }
 
-type threadEdit thread
+// type threadEdit thread
 
-func (t *threadEdit) UnmarshalJSON(b []byte) error {
-	return (*thread)(t).verifyAndParseEdit(b)
+//func (t *threadEdit) UnmarshalJSON(b []byte) error {
+//	return (*thread)(t).verifyAndParseEdit(b)
+//}
+
+type threadCollection struct {
+    threads []thread
+    getFromUuidStmt *sql.Stmt
+    createEntityStmt *sql.Stmt
 }
 
-type threadCollection []thread
+func (tc *threadCollection) prepareStmts() {
+	var err error
+
+	tc.getFromUuidStmt, err = db.Prepare(`
+    SELECT 
+         Uuid,
+         Title
+    FROM threads 
+    WHERE Uuid = ?`)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+    tc.createEntityStmt, err = db.Prepare(`
+    INSERT INTO threads (
+        Uuid,
+        Title )
+    VALUES (?, ?)`) 
+
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (tc *threadCollection) closeStmts() {
+    tc.getFromUuidStmt.Close()
+}
 
 var threads threadCollection
 
@@ -77,67 +117,100 @@ func (tc *threadCollection) CreateEntity(requestor entitycoll.Entity, parentEnti
 	if err != nil {
 		return "", err
 	}
-	*tc = append(*tc, t)
+
+    _, err = tc.createEntityStmt.Exec(t.Id.Bytes(), t.Title)
+
+    if err != nil {
+        return "", err
+    }
+
 	path := "/" + tc.GetRestName() + "/" + t.Id.String()
 	return path, nil
 }
 
 func (tc *threadCollection) GetEntity(targetUuid uuid.UUID) (entitycoll.Entity, error) {
-	var i int
-	for i, _ = range *tc {
-		if uuid.Equal((*tc)[i].Id, targetUuid) {
-			return &(*tc)[i], nil
-		}
+    var t thread
+	err := tc.getFromUuidStmt.QueryRow(targetUuid.Bytes()).Scan(&t.Id, &t.Title)
+
+	if err != nil {
+		return nil, err
 	}
-	return nil, errors.New("could not find user")
+
+	return &t, nil
 }
 
 func (tc *threadCollection) GetCollection(parentEntityUuids map[string]uuid.UUID, filter entitycoll.CollFilter) (entitycoll.Collection, error) {
-	tSubColl := []thread{}
+    var ec entitycoll.Collection
 
-	count := uint64(10)
-	page := int64(0)
-	if filter.Page != nil {
-		page = *filter.Page
+    // TODO put in paging and filtering
+    rows, err := db.Query(`
+    SELECT
+        Uuid,
+        Title
+    FROM
+        threads
+    `)
+	if err != nil {
+        return entitycoll.Collection{}, err
 	}
-	if filter.Count != nil {
-		count = *filter.Count
-	}
-	offset := page * int64(count)
-
-	i := uint(0)
-	for _, t := range *tc {
-		if int64(i) >= int64(count)+offset {
-			break
+	defer rows.Close()
+	for rows.Next() {
+        ec.TotalEntities += 1
+        var t thread
+		err = rows.Scan(&t.Id, &t.Title)
+		if err != nil {
+			log.Fatal(err)
 		}
-		if int64(i) >= offset {
-			tSubColl = append(tSubColl, t)
-		}
-		i++
+        ec.Entities = append(ec.Entities, t)
 	}
+	err = rows.Err()
+	if err != nil {
+        return entitycoll.Collection{}, err
+	}
+	// count := uint64(10)
+	// page := int64(0)
+	// if filter.Page != nil {
+	// 	page = *filter.Page
+	// }
+	// if filter.Count != nil {
+	// 	count = *filter.Count
+	// }
+	// offset := page * int64(count)
 
-	return entitycoll.Collection{TotalEntities: i, Entities: tSubColl}, nil
+    return ec, nil
 }
 
 func (tc *threadCollection) EditEntity(targetUuid uuid.UUID, body []byte) error {
-	e, err := tc.GetEntity(targetUuid)
-	if err != nil {
-		return err
-	}
+    var edit threadEdit
 
-	u, ok := e.(*thread)
-	if !ok {
-		return errors.New("thread pointer type assertion error")
-	}
+    err := json.Unmarshal(body, &edit)
+    if err != nil {
+        return err
+    }
 
-	return json.Unmarshal(body, (*threadEdit)(u))
+    if (edit.Title != nil) {
+        log.Println(*edit.Title)
+    }
+
+    return err
+	// e, err := tc.GetEntity(targetUuid)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// u, ok := e.(*thread)
+	// if !ok {
+	// 	return errors.New("thread pointer type assertion error")
+	// }
+
+	// return json.Unmarshal(body, (*threadEdit)(u))
 }
 
 func (tc *threadCollection) DelEntity(targetUuid uuid.UUID) error {
 	var i int
-	for i, _ = range *tc {
-		if uuid.Equal((*tc)[i].Id, targetUuid) {
-			(*tc) = append((*tc)[:i], (*tc)[i+1:]...)
+	for i, _ = range tc.threads {
+		if uuid.Equal(tc.threads[i].Id, targetUuid) {
+			tc.threads = append(tc.threads[:i], tc.threads[i+1:]...)
 			return nil
 		}
 	}
