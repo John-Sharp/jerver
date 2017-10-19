@@ -2,12 +2,12 @@ package main
 
 import (
 	"database/sql"
-	_ "github.com/mattn/go-sqlite3"
 	"encoding/json"
 	"errors"
 	"github.com/john-sharp/entitycoll"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/satori/go.uuid"
-    "log"
+	"log"
 )
 
 type thread struct {
@@ -17,7 +17,7 @@ type thread struct {
 }
 
 type threadEdit struct {
-    Title  *string
+	Title *string
 }
 
 func (t *thread) verifyAndParseNew(b []byte) error {
@@ -47,11 +47,11 @@ func (t *threadNew) UnmarshalJSON(b []byte) error {
 }
 
 type threadCollection struct {
-    threads []thread
-    getFromUuidStmt *sql.Stmt
-    createEntityStmt *sql.Stmt
-    editEntityStmt *sql.Stmt
-    deleteEntityStmt *sql.Stmt
+	threads          []thread
+	getFromUuidStmt  *sql.Stmt
+	createEntityStmt *sql.Stmt
+	editEntityStmt   *sql.Stmt
+	deleteEntityStmt *sql.Stmt
 }
 
 func (tc *threadCollection) prepareStmts() {
@@ -68,17 +68,17 @@ func (tc *threadCollection) prepareStmts() {
 		log.Fatal(err)
 	}
 
-    tc.createEntityStmt, err = db.Prepare(`
+	tc.createEntityStmt, err = db.Prepare(`
     INSERT INTO threads (
         Uuid,
         Title )
-    VALUES (?, ?)`) 
+    VALUES (?, ?)`)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-    tc.editEntityStmt, err = db.Prepare(`
+	tc.editEntityStmt, err = db.Prepare(`
     UPDATE threads
     SET Title=?
     WHERE Uuid = ?
@@ -88,7 +88,7 @@ func (tc *threadCollection) prepareStmts() {
 		log.Fatal(err)
 	}
 
-    tc.deleteEntityStmt, err = db.Prepare(`
+	tc.deleteEntityStmt, err = db.Prepare(`
     DELETE FROM threads
     WHERE Uuid = ?
     `)
@@ -99,7 +99,7 @@ func (tc *threadCollection) prepareStmts() {
 }
 
 func (tc *threadCollection) closeStmts() {
-    tc.getFromUuidStmt.Close()
+	tc.getFromUuidStmt.Close()
 }
 
 var threads threadCollection
@@ -121,18 +121,18 @@ func (tc *threadCollection) CreateEntity(requestor entitycoll.Entity, parentEnti
 		return "", err
 	}
 
-    _, err = tc.createEntityStmt.Exec(t.Id.Bytes(), t.Title)
+	_, err = tc.createEntityStmt.Exec(t.Id.Bytes(), t.Title)
 
-    if err != nil {
-        return "", err
-    }
+	if err != nil {
+		return "", err
+	}
 
 	path := "/" + tc.GetRestName() + "/" + t.Id.String()
 	return path, nil
 }
 
 func (tc *threadCollection) GetEntity(targetUuid uuid.UUID) (entitycoll.Entity, error) {
-    var t thread
+	var t thread
 	err := tc.getFromUuidStmt.QueryRow(targetUuid.Bytes()).Scan(&t.Id, &t.Title)
 
 	if err != nil {
@@ -143,10 +143,10 @@ func (tc *threadCollection) GetEntity(targetUuid uuid.UUID) (entitycoll.Entity, 
 }
 
 func (tc *threadCollection) GetCollection(parentEntityUuids map[string]uuid.UUID, filter entitycoll.CollFilter) (entitycoll.Collection, error) {
-    var ec entitycoll.Collection
+	var ec entitycoll.Collection
 
-    // TODO put in paging and filtering
-    rows, err := db.Query(`
+	// TODO put in paging and filtering
+	rows, err := db.Query(`
     SELECT
         Uuid,
         Title
@@ -154,21 +154,21 @@ func (tc *threadCollection) GetCollection(parentEntityUuids map[string]uuid.UUID
         threads
     `)
 	if err != nil {
-        return entitycoll.Collection{}, err
+		return entitycoll.Collection{}, err
 	}
 	defer rows.Close()
 	for rows.Next() {
-        ec.TotalEntities += 1
-        var t thread
+		ec.TotalEntities += 1
+		var t thread
 		err = rows.Scan(&t.Id, &t.Title)
 		if err != nil {
 			log.Fatal(err)
 		}
-        ec.Entities = append(ec.Entities, t)
+		ec.Entities = append(ec.Entities, t)
 	}
 	err = rows.Err()
 	if err != nil {
-        return entitycoll.Collection{}, err
+		return entitycoll.Collection{}, err
 	}
 	// count := uint64(10)
 	// page := int64(0)
@@ -180,27 +180,27 @@ func (tc *threadCollection) GetCollection(parentEntityUuids map[string]uuid.UUID
 	// }
 	// offset := page * int64(count)
 
-    return ec, nil
+	return ec, nil
 }
 
 func (tc *threadCollection) EditEntity(targetUuid uuid.UUID, body []byte) error {
-    var edit threadEdit
+	var edit threadEdit
 
-    err := json.Unmarshal(body, &edit)
-    if err != nil {
-        return err
-    }
+	err := json.Unmarshal(body, &edit)
+	if err != nil {
+		return err
+	}
 
-    if (edit.Title == nil) {
-        return nil
-    }
+	if edit.Title == nil {
+		return nil
+	}
 
-    _, err = tc.editEntityStmt.Exec(edit.Title, targetUuid.Bytes())
+	_, err = tc.editEntityStmt.Exec(edit.Title, targetUuid.Bytes())
 
-    return err
+	return err
 }
 
 func (tc *threadCollection) DelEntity(targetUuid uuid.UUID) error {
-    _, err := tc.deleteEntityStmt.Exec(targetUuid.Bytes())
+	_, err := tc.deleteEntityStmt.Exec(targetUuid.Bytes())
 	return err
 }

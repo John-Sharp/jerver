@@ -132,7 +132,7 @@ func (mc *messageCollection) GetCollection(parentEntityUuids map[string]uuid.UUI
 		}
 	}
 
-	return entitycoll.Collection{TotalEntities: i/*, Entities: mSubColl*/}, nil
+	return entitycoll.Collection{TotalEntities: i /*, Entities: mSubColl*/}, nil
 }
 
 func (mc *messageCollection) EditEntity(targetUuid uuid.UUID, body []byte) error {

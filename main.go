@@ -21,7 +21,7 @@ func init() {
 	}
 
 	users.prepareStmts()
-    threads.prepareStmts()
+	threads.prepareStmts()
 
 	http.Handle("/", entitycoll.RootApiHandler)
 }
