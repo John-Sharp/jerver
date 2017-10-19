@@ -40,34 +40,18 @@ func (t *thread) verifyAndParseNew(b []byte) error {
 	return nil
 }
 
-// func (t *thread) verifyAndParseEdit(b []byte) error {
-//	bu := t.Id
-//	bn := t.NumMsgs
-//	err := json.Unmarshal(b, &t)
-//	if err != nil {
-//		return err
-//	}
-//	t.Id = bu
-//	t.NumMsgs = bn
-//	return nil
-// }
-
 type threadNew thread
 
 func (t *threadNew) UnmarshalJSON(b []byte) error {
 	return (*thread)(t).verifyAndParseNew(b)
 }
 
-// type threadEdit thread
-
-//func (t *threadEdit) UnmarshalJSON(b []byte) error {
-//	return (*thread)(t).verifyAndParseEdit(b)
-//}
-
 type threadCollection struct {
     threads []thread
     getFromUuidStmt *sql.Stmt
     createEntityStmt *sql.Stmt
+    editEntityStmt *sql.Stmt
+    deleteEntityStmt *sql.Stmt
 }
 
 func (tc *threadCollection) prepareStmts() {
@@ -89,6 +73,25 @@ func (tc *threadCollection) prepareStmts() {
         Uuid,
         Title )
     VALUES (?, ?)`) 
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+    tc.editEntityStmt, err = db.Prepare(`
+    UPDATE threads
+    SET Title=?
+    WHERE Uuid = ?
+    `)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+    tc.deleteEntityStmt, err = db.Prepare(`
+    DELETE FROM threads
+    WHERE Uuid = ?
+    `)
 
 	if err != nil {
 		log.Fatal(err)
@@ -188,31 +191,16 @@ func (tc *threadCollection) EditEntity(targetUuid uuid.UUID, body []byte) error 
         return err
     }
 
-    if (edit.Title != nil) {
-        log.Println(*edit.Title)
+    if (edit.Title == nil) {
+        return nil
     }
 
+    _, err = tc.editEntityStmt.Exec(edit.Title, targetUuid.Bytes())
+
     return err
-	// e, err := tc.GetEntity(targetUuid)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// u, ok := e.(*thread)
-	// if !ok {
-	// 	return errors.New("thread pointer type assertion error")
-	// }
-
-	// return json.Unmarshal(body, (*threadEdit)(u))
 }
 
 func (tc *threadCollection) DelEntity(targetUuid uuid.UUID) error {
-	var i int
-	for i, _ = range tc.threads {
-		if uuid.Equal(tc.threads[i].Id, targetUuid) {
-			tc.threads = append(tc.threads[:i], tc.threads[i+1:]...)
-			return nil
-		}
-	}
-	return errors.New("could not find thread to delete")
+    _, err := tc.deleteEntityStmt.Exec(targetUuid.Bytes())
+	return err
 }
