@@ -25,12 +25,25 @@ var users = []userBaseDetails{
 }
 
 type threadBaseDetails struct {
-    Title  string
+	Title string
 }
 
 var threads = []threadBaseDetails{
-    {"Who's the best PM?"},
-    {"Favourite Commons memory?"},
+	{"Who's the best PM?"},
+	{"Favourite Commons memory?"},
+}
+
+type messageBaseDetails struct {
+	ThreadIndex uint
+	AuthorIndex uint
+	Content     string
+}
+
+var messages = []messageBaseDetails{
+	{0, 3, "Asquith"},
+	{0, 4, "Lloyd George"},
+	{1, 3, "That day we declared war"},
+	{1, 4, "When I forced Asquith out"},
 }
 
 func main() {
@@ -42,7 +55,7 @@ func main() {
 	}
 	defer db.Close()
 
-    // CREATE USERS TABLE
+	// CREATE USERS TABLE
 	sqlStmt := `
 	CREATE TABLE users (
         Uuid blob NOT NULL PRIMARY KEY, 
@@ -57,7 +70,7 @@ func main() {
 		return
 	}
 
-    // POPULATE USERS TABLE
+	// POPULATE USERS TABLE
 	tx, err := db.Begin()
 	if err != nil {
 		log.Fatal(err)
@@ -74,21 +87,24 @@ func main() {
 		log.Fatal(err)
 	}
 	defer stmt.Close()
-	for _, user := range users {
+
+	userUuids := []uuid.UUID{}
+	for i, user := range users {
+		userUuids = append(userUuids, uuid.NewV4())
 		hpwd, err := bcrypt.GenerateFromPassword([]byte(user.Pwd), bcrypt.DefaultCost)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		_, err = stmt.Exec(uuid.NewV4().Bytes(), user.FirstName,
+		_, err = stmt.Exec(userUuids[i].Bytes(), user.FirstName,
 			user.SecondName, user.Username, hpwd)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 	tx.Commit()
-    
-    // CREATE THREADS TABLE
+
+	// CREATE THREADS TABLE
 	sqlStmt = `
 	CREATE TABLE threads (
         Uuid blob NOT NULL PRIMARY KEY, 
@@ -100,7 +116,7 @@ func main() {
 		return
 	}
 
-    // POPULATE THREADS TABLE
+	// POPULATE THREADS TABLE
 	tx, err = db.Begin()
 	if err != nil {
 		log.Fatal(err)
@@ -114,8 +130,57 @@ func main() {
 		log.Fatal(err)
 	}
 	defer stmt.Close()
-	for _, thread := range threads {
-		_, err = stmt.Exec(uuid.NewV4().Bytes(), thread.Title)
+
+	threadUuids := []uuid.UUID{}
+	for i, thread := range threads {
+		threadUuids = append(threadUuids, uuid.NewV4())
+		_, err = stmt.Exec(threadUuids[i].Bytes(), thread.Title)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	tx.Commit()
+
+	// CREATE MESSAGES TABLE
+	sqlStmt = `
+    CREATE TABLE messages (
+        Uuid blob NOT NULL PRIMARY KEY,
+        ThreadId blob NOT NULL,
+        AuthorId blob NOT NULL,
+        Content string,
+        FOREIGN KEY(ThreadId) REFERENCES threads(Uuid),
+        FOREIGN KEY(AuthorId) REFERENCES users(Uuid))
+    `
+	_, err = db.Exec(sqlStmt)
+	if err != nil {
+		log.Printf("%q: %s\n", err, sqlStmt)
+		return
+	}
+
+	// POPULATE MESSAGES TABLE
+	tx, err = db.Begin()
+	if err != nil {
+		log.Fatal(err)
+	}
+	stmt, err = tx.Prepare(`
+    INSERT INTO messages(
+        Uuid,
+        ThreadId,
+        AuthorId,
+        Content)
+    VALUES (?, ?, ?, ?)`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer stmt.Close()
+
+	for _, message := range messages {
+		_, err = stmt.Exec(
+			uuid.NewV4().Bytes(),
+			threadUuids[message.ThreadIndex].Bytes(),
+			userUuids[message.AuthorIndex].Bytes(),
+			message.Content)
+
 		if err != nil {
 			log.Fatal(err)
 		}
