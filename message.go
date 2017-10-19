@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/john-sharp/entitycoll"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/satori/go.uuid"
@@ -53,9 +52,9 @@ func (m *messageNew) UnmarshalJSON(b []byte) error {
 }
 
 type messageCollection struct {
-	messages         []message
 	getFromUuidStmt  *sql.Stmt
 	createEntityStmt *sql.Stmt
+	deleteEntityStmt *sql.Stmt
 }
 
 func (mc *messageCollection) prepareStmts() {
@@ -81,6 +80,15 @@ func (mc *messageCollection) prepareStmts() {
         AuthorId,
         Content)
     VALUES (?, ?, ?, ?)`)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	mc.deleteEntityStmt, err = db.Prepare(`
+    DELETE FROM messages
+    WHERE Uuid = ?
+    `)
 
 	if err != nil {
 		log.Fatal(err)
@@ -249,19 +257,6 @@ func (mc *messageCollection) EditEntity(targetUuid uuid.UUID, body []byte) error
 }
 
 func (mc *messageCollection) DelEntity(targetUuid uuid.UUID) error {
-	var i int
-	for i, _ = range mc.messages {
-		if uuid.Equal(mc.messages[i].Id, targetUuid) {
-			threadEntity, err := threads.GetEntity(mc.messages[i].ThreadId)
-			if err != nil {
-				fmt.Println("WARNING: Could not find parent thread when deleting")
-			} else {
-				threadEntity.(*thread).NumMsgs -= 1
-			}
-
-			mc.messages = append(mc.messages[:i], mc.messages[i+1:]...)
-			return nil
-		}
-	}
-	return errors.New("could not find message to delete")
+	_, err := mc.deleteEntityStmt.Exec(targetUuid.Bytes())
+	return err
 }
