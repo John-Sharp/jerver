@@ -47,9 +47,9 @@ var messages = []messageBaseDetails{
 }
 
 func main() {
-	os.Remove("./jerver.db")
+	os.Remove("../jerver.db")
 
-	db, err := sql.Open("sqlite3", "./jerver.db")
+	db, err := sql.Open("sqlite3", "../jerver.db")
 	if err != nil {
 		log.Fatal(err)
 	}
