@@ -52,8 +52,9 @@ func (m *messageEdit) UnmarshalJSON(b []byte) error {
 }
 
 type messageCollection struct {
-	messages        []message
-	getFromUuidStmt *sql.Stmt
+	messages         []message
+	getFromUuidStmt  *sql.Stmt
+	createEntityStmt *sql.Stmt
 }
 
 func (mc *messageCollection) prepareStmts() {
@@ -67,6 +68,18 @@ func (mc *messageCollection) prepareStmts() {
          Content
     FROM messages 
     WHERE Uuid = ?`)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	mc.createEntityStmt, err = db.Prepare(`
+    INSERT INTO messages (
+        Uuid,
+        ThreadId,
+        AuthorId,
+        Content)
+    VALUES (?, ?, ?, ?)`)
 
 	if err != nil {
 		log.Fatal(err)
@@ -102,14 +115,12 @@ func (mc *messageCollection) CreateEntity(requestor entitycoll.Entity, parentEnt
 	user := requestor.(*user)
 	m.AuthorId = user.Uuid
 
-	// increase parent thread's number of messages by one
-	threadEntity, err := threads.GetEntity(threadId)
-	if err != nil {
-		return "", err
-	}
-	threadEntity.(*thread).NumMsgs += 1
+	_, err = mc.createEntityStmt.Exec(
+		m.Id.Bytes(),
+		m.ThreadId.Bytes(),
+		m.AuthorId.Bytes(),
+		m.Content)
 
-	mc.messages = append(mc.messages, m)
 	path := "/" + mc.GetParentCollection().GetRestName() + "/" + threadId.String() + "/" + mc.GetRestName() + "/" + m.Id.String()
 	return path, nil
 }
