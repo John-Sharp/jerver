@@ -13,7 +13,6 @@ var db *sql.DB
 
 func init() {
 	var err error
-	threads.threads = []thread{}
 
 	db, err = sql.Open("sqlite3", "./jerver.db")
 	if err != nil {
@@ -22,6 +21,7 @@ func init() {
 
 	users.prepareStmts()
 	threads.prepareStmts()
+	messages.prepareStmts()
 
 	http.Handle("/", entitycoll.RootApiHandler)
 }

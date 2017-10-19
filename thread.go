@@ -47,7 +47,6 @@ func (t *threadNew) UnmarshalJSON(b []byte) error {
 }
 
 type threadCollection struct {
-	threads          []thread
 	getFromUuidStmt  *sql.Stmt
 	createEntityStmt *sql.Stmt
 	editEntityStmt   *sql.Stmt
