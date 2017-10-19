@@ -78,8 +78,7 @@ func (tc *threadCollection) prepareStmts() {
 	}
 
 	tc.editEntityStmt, err = db.Prepare(`
-    UPDATE threads
-    SET Title=?
+    UPDATE threads SET Title=?
     WHERE Uuid = ?
     `)
 
