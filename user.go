@@ -1,11 +1,14 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"github.com/john-sharp/entitycoll"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/satori/go.uuid"
 	"golang.org/x/crypto/bcrypt"
+	"log"
 )
 
 // user is an api entity
@@ -63,17 +66,29 @@ func (u *user) popNew(fname, sname, uname, pwd string) error {
 }
 
 func (uc *userCollection) verifyUser(uname, pwd string) (entitycoll.Entity, error) {
-	var i int
-	for i, _ = range *uc {
-		if (*uc)[i].Username == uname {
-			if err := bcrypt.CompareHashAndPassword((*uc)[i].HashedPwd, []byte(pwd)); err != nil {
-				return nil, err
-			} else {
-				return (&(*uc)[i]), nil
-			}
-		}
+	u, err := uc.getUserByUsername(uname)
+
+	if err != nil {
+		log.Printf(err.Error())
+		return nil, errors.New("could not find user")
 	}
-	return nil, errors.New("could not find user")
+
+	if err = bcrypt.CompareHashAndPassword(u.HashedPwd, []byte(pwd)); err != nil {
+		return nil, err
+	}
+
+	return u, nil
+}
+
+func (uc *userCollection) getUserByUsername(uname string) (*user, error) {
+	var u user
+	err := uc.getFromUnameStmt.QueryRow(uname).Scan(&u.Uuid, &u.FirstName, &u.SecondName, &u.Username, &u.HashedPwd)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &u, nil
 }
 
 // called during the jsonUnmarshal of an edit of a user.
@@ -108,12 +123,49 @@ func (u *userEdit) UnmarshalJSON(b []byte) error {
 }
 
 // userCollection will implement entityCollection
-// in this example it is just defined as a slice of users
-// in future could be a wrapper around db connection etc
-type userCollection []user
+type userCollection struct {
+	getFromUnameStmt *sql.Stmt
+	getFromUuidStmt  *sql.Stmt
+}
 
 // global variable representing userCollection of all users in example
 var users userCollection
+
+func (uc *userCollection) prepareStmts() {
+	var err error
+	uc.getFromUnameStmt, err = db.Prepare(`
+    SELECT 
+         Uuid,
+         FirstName,
+         SecondName,
+         Username,
+         HashedPwd
+    FROM users 
+    WHERE Username = ?`)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	uc.getFromUuidStmt, err = db.Prepare(`
+    SELECT 
+         Uuid,
+         FirstName,
+         SecondName,
+         Username,
+         HashedPwd
+    FROM users 
+    WHERE Uuid = ?`)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (uc *userCollection) closeStmts() {
+	users.getFromUnameStmt.Close()
+	users.getFromUuidStmt.Close()
+}
 
 // implementation of entityCollectionInterface...
 
@@ -126,24 +178,21 @@ func (uc *userCollection) GetParentCollection() entitycoll.EntityCollection {
 }
 
 func (uc *userCollection) CreateEntity(requestor entitycoll.Entity, parentEntityUuids map[string]uuid.UUID, body []byte) (string, error) {
-	var u user
-	err := json.Unmarshal(body, (*userNew)(&u))
-	if err != nil {
-		return "", err
-	}
-	*uc = append(*uc, u)
-	path := "/" + uc.GetRestName() + "/" + u.Uuid.String()
-	return path, nil
+	// TODO add dedicated error code to entity coll for
+	// not being able to create entity
+	return "", errors.New("create entity not allowed")
 }
 
 func (uc *userCollection) GetEntity(targetUuid uuid.UUID) (entitycoll.Entity, error) {
-	var i int
-	for i, _ = range *uc {
-		if uuid.Equal((*uc)[i].Uuid, targetUuid) {
-			return &(*uc)[i], nil
-		}
+	var u user
+	err := uc.getFromUuidStmt.QueryRow(targetUuid.Bytes()).Scan(&u.Uuid, &u.FirstName, &u.SecondName, &u.Username, &u.HashedPwd)
+
+	if err != nil {
+		log.Println(err)
+		return nil, err
 	}
-	return nil, errors.New("could not find user")
+
+	return &u, nil
 }
 
 func (uc *userCollection) GetCollection(parentEntityUuids map[string]uuid.UUID, filter entitycoll.CollFilter) (entitycoll.Collection, error) {
@@ -165,12 +214,5 @@ func (uc *userCollection) EditEntity(targetUuid uuid.UUID, body []byte) error {
 }
 
 func (uc *userCollection) DelEntity(targetUuid uuid.UUID) error {
-	var i int
-	for i, _ = range *uc {
-		if uuid.Equal((*uc)[i].Uuid, targetUuid) {
-			(*uc) = append((*uc)[:i], (*uc)[i+1:]...)
-			return nil
-		}
-	}
-	return errors.New("could not find user to delete")
+	return errors.New("del entity not allowed")
 }

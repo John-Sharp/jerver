@@ -1,28 +1,28 @@
 package main
 
 import (
+	"database/sql"
+	_ "github.com/mattn/go-sqlite3"
+	"log"
 	"net/http"
 
 	"github.com/john-sharp/entitycoll"
 )
 
+var db *sql.DB
+
 func init() {
-	var u user
-	u.popNew("John", "Sharp", "jcsharp", "pwd")
-	users = []user{
-		u,
+	var err error
+	threads = []thread{}
+
+	db, err = sql.Open("sqlite3", "./jerver.db")
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	threads = []thread{}
-	http.Handle("/", entitycoll.RootApiHandler)
-}
+	users.prepareStmts()
 
-// TODO deprecate
-// checks log-in credentials SOON TO BE DEPRECATED
-func verifyAccount(uname string, pwd string) (*user, error) {
-	e, err := users.verifyUser(uname, pwd)
-	u := (e).(*user)
-	return u, err
+	http.Handle("/", entitycoll.RootApiHandler)
 }
 
 func authorizeUser(uname, pwd string) (entitycoll.Entity, error) {
@@ -44,7 +44,7 @@ func verificationHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusUnauthorized)
 		return
 	}
-	_, err := verifyAccount(uname, pword)
+	_, err := authorizeUser(uname, pword)
 	if err != nil {
 		http.Error(w, "incorrect uname/pword", http.StatusForbidden)
 		return

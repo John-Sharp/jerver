@@ -76,7 +76,7 @@ func (mc *messageCollection) CreateEntity(requestor entitycoll.Entity, parentEnt
 	}
 
 	m.ThreadId = threadId
-    user := requestor.(*user)
+	user := requestor.(*user)
 	m.AuthorId = user.Uuid
 
 	// increase parent thread's number of messages by one
