@@ -151,7 +151,17 @@ func (mc *messageCollection) GetCollection(parentEntityUuids map[string]uuid.UUI
 		return entitycoll.Collection{}, errors.New("no thread ID supplied")
 	}
 
-	// TODO put in paging and filtering
+	count := uint64(10)
+	page := int64(0)
+	if filter.Page != nil {
+		page = *filter.Page
+	}
+	if filter.Count != nil {
+		count = *filter.Count
+	}
+	offset := page * int64(count)
+
+	// TODO put in filtering
 	rows, err := db.Query(`
     SELECT
          Uuid,
@@ -161,14 +171,14 @@ func (mc *messageCollection) GetCollection(parentEntityUuids map[string]uuid.UUI
     FROM
         messages
     WHERE ThreadId = ?
-    `, threadId.Bytes())
+    LIMIT ?, ?
+    `, threadId.Bytes(), offset, count)
 
 	if err != nil {
 		return entitycoll.Collection{}, err
 	}
 	defer rows.Close()
 	for rows.Next() {
-		ec.TotalEntities += 1
 		var m message
 		err = rows.Scan(&m.Id, &m.ThreadId, &m.AuthorId, &m.Content)
 		if err != nil {
@@ -181,32 +191,19 @@ func (mc *messageCollection) GetCollection(parentEntityUuids map[string]uuid.UUI
 		return entitycoll.Collection{}, err
 	}
 
+	// TODO also need to put filtering in here
+	err = db.QueryRow(`
+    SELECT
+        count(*) 
+    FROM
+        messages
+    WHERE ThreadId = ?
+    `, threadId.Bytes()).Scan(&ec.TotalEntities)
+	if err != nil {
+		return entitycoll.Collection{}, err
+	}
+
 	return ec, nil
-
-	// count := uint64(10)
-	// page := int64(0)
-	// if filter.Page != nil {
-	// 	page = *filter.Page
-	// }
-	// if filter.Count != nil {
-	// 	count = *filter.Count
-	// }
-	// offset := page * int64(count)
-
-	// i := uint(0)
-	// for _, m := range mc.messages {
-	// 	if uuid.Equal(m.ThreadId, threadId) {
-	// 		if int64(i) >= int64(count)+offset {
-	// 			break
-	// 		}
-	// 		if int64(i) >= offset {
-	// 			mSubColl = append(mSubColl, m)
-	// 		}
-	// 		i++
-	// 	}
-	// }
-
-	// return entitycoll.Collection{TotalEntities: i /*, Entities: mSubColl*/}, nil
 }
 
 func (mc *messageCollection) EditEntity(targetUuid uuid.UUID, body []byte) error {
