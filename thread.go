@@ -143,14 +143,25 @@ func (tc *threadCollection) GetEntity(targetUuid uuid.UUID) (entitycoll.Entity, 
 func (tc *threadCollection) GetCollection(parentEntityUuids map[string]uuid.UUID, filter entitycoll.CollFilter) (entitycoll.Collection, error) {
 	var ec entitycoll.Collection
 
-	// TODO put in paging and filtering
+	count := uint64(10)
+	page := int64(0)
+	if filter.Page != nil {
+		page = *filter.Page
+	}
+	if filter.Count != nil {
+		count = *filter.Count
+	}
+	offset := page * int64(count)
+
+	// TODO put in filtering
 	rows, err := db.Query(`
     SELECT
         Uuid,
         Title
     FROM
         threads
-    `)
+    LIMIT ?, ?
+    `, offset, count)
 	if err != nil {
 		return entitycoll.Collection{}, err
 	}
@@ -168,15 +179,17 @@ func (tc *threadCollection) GetCollection(parentEntityUuids map[string]uuid.UUID
 	if err != nil {
 		return entitycoll.Collection{}, err
 	}
-	// count := uint64(10)
-	// page := int64(0)
-	// if filter.Page != nil {
-	// 	page = *filter.Page
-	// }
-	// if filter.Count != nil {
-	// 	count = *filter.Count
-	// }
-	// offset := page * int64(count)
+
+	// TODO also need to put filtering in here
+	err = db.QueryRow(`
+    SELECT
+        count(*) 
+    FROM
+        threads
+    `).Scan(&ec.TotalEntities)
+	if err != nil {
+		return entitycoll.Collection{}, err
+	}
 
 	return ec, nil
 }
