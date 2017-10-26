@@ -4,10 +4,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"github.com/john-sharp/entitycoll"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/satori/go.uuid"
 	"log"
+	"techbrewers.com/usr/repos/entitycoll"
 )
 
 type thread struct {

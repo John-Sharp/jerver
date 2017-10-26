@@ -5,8 +5,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"log"
 	"net/http"
-
-	"github.com/john-sharp/entitycoll"
+	"techbrewers.com/usr/repos/entitycoll"
 )
 
 var db *sql.DB
@@ -22,8 +21,6 @@ func init() {
 	users.prepareStmts()
 	threads.prepareStmts()
 	messages.prepareStmts()
-
-	http.Handle("/", entitycoll.RootApiHandler)
 }
 
 func authorizeUser(uname, pwd string) (entitycoll.Entity, error) {
@@ -53,7 +50,7 @@ func verificationHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	entitycoll.SetRequestorAuthFn(authorizeUser)
+	entitycoll.Configure(entitycoll.Configuration{ApiRoot: "/", AccessControlAllowOrigin: "http://localhost:8090", RequestorAuthFn: authorizeUser})
 	entitycoll.CreateApiObject(&users)
 	entitycoll.CreateApiObject(&threads)
 	entitycoll.CreateApiObject(&messages)

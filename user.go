@@ -4,11 +4,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"github.com/john-sharp/entitycoll"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/satori/go.uuid"
 	"golang.org/x/crypto/bcrypt"
 	"log"
+	"techbrewers.com/usr/repos/entitycoll"
 )
 
 // user is an api entity
