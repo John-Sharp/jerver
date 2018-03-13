@@ -35,7 +35,7 @@ func (t *thread) verifyAndParseNew(b []byte) error {
 		return errors.New("thread Title not set when required")
 	}
 
-	t.Id = uuid.NewV4()
+	t.Id, _ = uuid.NewV4()
 	t.Title = *data.Title
 	return nil
 }

@@ -90,7 +90,8 @@ func main() {
 
 	userUuids := []uuid.UUID{}
 	for i, user := range users {
-		userUuids = append(userUuids, uuid.NewV4())
+		userUuid, _ := uuid.NewV4()
+		userUuids = append(userUuids, userUuid)
 		hpwd, err := bcrypt.GenerateFromPassword([]byte(user.Pwd), bcrypt.DefaultCost)
 		if err != nil {
 			log.Fatal(err)
@@ -133,7 +134,8 @@ func main() {
 
 	threadUuids := []uuid.UUID{}
 	for i, thread := range threads {
-		threadUuids = append(threadUuids, uuid.NewV4())
+		threadUuid, _ := uuid.NewV4()
+		threadUuids = append(threadUuids, threadUuid)
 		_, err = stmt.Exec(threadUuids[i].Bytes(), thread.Title)
 		if err != nil {
 			log.Fatal(err)
@@ -175,8 +177,9 @@ func main() {
 	defer stmt.Close()
 
 	for _, message := range messages {
+		messageUuid, _ := uuid.NewV4()
 		_, err = stmt.Exec(
-			uuid.NewV4().Bytes(),
+			messageUuid.Bytes(),
 			threadUuids[message.ThreadIndex].Bytes(),
 			userUuids[message.AuthorIndex].Bytes(),
 			message.Content)

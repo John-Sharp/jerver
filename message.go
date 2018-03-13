@@ -31,7 +31,7 @@ func (m *message) verifyAndParseNew(b []byte) error {
 		return err
 	}
 
-	m.Id = uuid.NewV4()
+	m.Id, _ = uuid.NewV4()
 	return nil
 }
 

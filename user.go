@@ -43,7 +43,7 @@ func (u *user) verifyAndParseNew(b []byte) error {
 		return errors.New("user SecondName not set when required")
 	}
 
-	u.Uuid = uuid.NewV4()
+	u.Uuid, _ = uuid.NewV4()
 	u.FirstName = *t.FirstName
 	u.SecondName = *t.SecondName
 	return nil
@@ -56,7 +56,7 @@ func (u *user) popNew(fname, sname, uname, pwd string) error {
 		return err
 	}
 
-	u.Uuid = uuid.NewV4()
+	u.Uuid, _ = uuid.NewV4()
 	u.FirstName = fname
 	u.SecondName = sname
 	u.Username = uname
