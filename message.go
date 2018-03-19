@@ -6,7 +6,6 @@ import (
 	"github.com/john-sharp/jerver/entities"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/satori/go.uuid"
-	"log"
 	"strings"
 	"techbrewers.com/usr/repos/entitycoll"
 )
@@ -41,44 +40,6 @@ func (m *messageNew) UnmarshalJSON(b []byte) error {
 	return (*message)(m).verifyAndParseNew(b)
 }
 
-func (mc *messageCollection) prepareStmts() {
-	var err error
-
-	// mc.getFromUuidStmt, err = db.Prepare(`
-	// SELECT
-	//      Uuid,
-	//      ThreadId,
-	//      AuthorId,
-	//      Content
-	// FROM messages
-	// WHERE Uuid = ?`)
-
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	mc.createEntityStmt, err = db.Prepare(`
-    INSERT INTO messages (
-        Uuid,
-        ThreadId,
-        AuthorId,
-        Content)
-    VALUES (?, ?, ?, ?)`)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	mc.deleteEntityStmt, err = db.Prepare(`
-    DELETE FROM messages
-    WHERE Uuid = ?
-    `)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
 var messages messageCollection
 
 // implementation of entityCollectionInterface...
@@ -92,7 +53,7 @@ func (mc *messageCollection) GetParentCollection() entitycoll.EntityCollection {
 }
 
 func (mc *messageCollection) CreateEntity(requestor entitycoll.Entity, parentEntityUuids map[string]uuid.UUID, body []byte) (string, error) {
-	var m message
+	var m entities.Message
 
 	threadId, ok := parentEntityUuids["threads"]
 	if !ok {
@@ -108,18 +69,18 @@ func (mc *messageCollection) CreateEntity(requestor entitycoll.Entity, parentEnt
 	user := requestor.(*user)
 	m.AuthorId = user.Uuid
 
-	_, err = mc.createEntityStmt.Exec(
-		m.Id.Bytes(),
-		m.ThreadId.Bytes(),
-		m.AuthorId.Bytes(),
-		m.Content)
+	err = mc.create(&m)
+
+	if err != nil {
+		return "", err
+	}
 
 	path := "/" + mc.GetParentCollection().GetRestName() + "/" + threadId.String() + "/" + mc.GetRestName() + "/" + m.Id.String()
 	return path, nil
 }
 
 func (mc *messageCollection) GetEntity(targetUuid uuid.UUID) (entitycoll.Entity, error) {
-	return mc.getFromUuid(targetUuid)
+	return mc.getByUuid(targetUuid)
 }
 
 func (mc *messageCollection) GetCollection(parentEntityUuids map[string]uuid.UUID, filter entitycoll.CollFilter) (entitycoll.Collection, error) {
@@ -137,46 +98,16 @@ func (mc *messageCollection) GetCollection(parentEntityUuids map[string]uuid.UUI
 	if filter.Count != nil {
 		count = *filter.Count
 	}
-	offset := page * int64(count)
 
-	// TODO put in filtering
-	rows, err := db.Query(`
-    SELECT
-         Uuid,
-         ThreadId,
-         AuthorId,
-         Content
-    FROM
-        messages
-    WHERE ThreadId = ?
-    LIMIT ?, ?
-    `, threadId.Bytes(), offset, count)
+	var err error
+	ec.Entities, err = mc.getCollection(threadId, count, page)
 
 	if err != nil {
 		return entitycoll.Collection{}, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var m message
-		err = rows.Scan(&m.Id, &m.ThreadId, &m.AuthorId, &m.Content)
-		if err != nil {
-			return entitycoll.Collection{}, err
-		}
-		ec.Entities = append(ec.Entities, m)
-	}
-	err = rows.Err()
-	if err != nil {
-		return entitycoll.Collection{}, err
-	}
 
-	// TODO also need to put filtering in here
-	err = db.QueryRow(`
-    SELECT
-        count(*) 
-    FROM
-        messages
-    WHERE ThreadId = ?
-    `, threadId.Bytes()).Scan(&ec.TotalEntities)
+	ec.TotalEntities, err = mc.getTotal(threadId)
+
 	if err != nil {
 		return entitycoll.Collection{}, err
 	}
@@ -232,6 +163,5 @@ func (mc *messageCollection) EditEntity(targetUuid uuid.UUID, body []byte) error
 }
 
 func (mc *messageCollection) DelEntity(targetUuid uuid.UUID) error {
-	_, err := mc.deleteEntityStmt.Exec(targetUuid.Bytes())
-	return err
+	return mc.deleteByUuid(targetUuid)
 }

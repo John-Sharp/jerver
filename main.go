@@ -20,7 +20,6 @@ func init() {
 
 	users.prepareStmts()
 	threads.prepareStmts()
-	messages.prepareStmts()
 }
 
 func authorizeUser(uname, pwd string) (entitycoll.Entity, error) {

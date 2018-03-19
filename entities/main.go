@@ -4,6 +4,8 @@ import (
 	"github.com/satori/go.uuid"
 )
 
+type Generic interface{}
+
 type Message struct {
 	Id       uuid.UUID
 	ThreadId uuid.UUID
