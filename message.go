@@ -1,9 +1,9 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
+	"github.com/john-sharp/jerver/entities"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/satori/go.uuid"
 	"log"
@@ -11,18 +11,8 @@ import (
 	"techbrewers.com/usr/repos/entitycoll"
 )
 
-type message struct {
-	Id       uuid.UUID
-	ThreadId uuid.UUID
-	AuthorId uuid.UUID
-	Content  string
-}
-
-type messageEdit struct {
-	ThreadId *uuid.UUID
-	AuthorId *uuid.UUID
-	Content  *string
-}
+type message entities.Message
+type messageEdit entities.MessageEdit
 
 func (m *message) verifyAndParseNew(b []byte) error {
 	err := json.Unmarshal(b, m)
@@ -51,27 +41,21 @@ func (m *messageNew) UnmarshalJSON(b []byte) error {
 	return (*message)(m).verifyAndParseNew(b)
 }
 
-type messageCollection struct {
-	getFromUuidStmt  *sql.Stmt
-	createEntityStmt *sql.Stmt
-	deleteEntityStmt *sql.Stmt
-}
-
 func (mc *messageCollection) prepareStmts() {
 	var err error
 
-	mc.getFromUuidStmt, err = db.Prepare(`
-    SELECT 
-         Uuid,
-         ThreadId,
-         AuthorId,
-         Content
-    FROM messages 
-    WHERE Uuid = ?`)
+	// mc.getFromUuidStmt, err = db.Prepare(`
+	// SELECT
+	//      Uuid,
+	//      ThreadId,
+	//      AuthorId,
+	//      Content
+	// FROM messages
+	// WHERE Uuid = ?`)
 
-	if err != nil {
-		log.Fatal(err)
-	}
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
 	mc.createEntityStmt, err = db.Prepare(`
     INSERT INTO messages (
@@ -135,13 +119,7 @@ func (mc *messageCollection) CreateEntity(requestor entitycoll.Entity, parentEnt
 }
 
 func (mc *messageCollection) GetEntity(targetUuid uuid.UUID) (entitycoll.Entity, error) {
-	var m message
-	err := mc.getFromUuidStmt.QueryRow(targetUuid.Bytes()).Scan(&m.Id, &m.ThreadId, &m.AuthorId, &m.Content)
-
-	if err != nil {
-		return nil, err
-	}
-	return &m, nil
+	return mc.getFromUuid(targetUuid)
 }
 
 func (mc *messageCollection) GetCollection(parentEntityUuids map[string]uuid.UUID, filter entitycoll.CollFilter) (entitycoll.Collection, error) {
