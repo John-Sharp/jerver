@@ -6,6 +6,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/satori/go.uuid"
 	"log"
+	"strings"
 )
 
 var db *sql.DB
@@ -131,4 +132,40 @@ func GetMessageTotal(threadId uuid.UUID) (uint, error) {
     `, threadId.Bytes()).Scan(&ret)
 
 	return ret, err
+}
+
+func EditMessageByUuid(targetUuid uuid.UUID, m *entities.MessageEdit) error {
+	// TODO cache prepared update statements based on the
+	// 'mask' of set fields
+	// TODO can use reflect to loop through the fields of
+	// the messageEdit struct to construct the query
+	query := "UPDATE messages SET "
+	updateFieldSql := []string{}
+	params := []interface{}{}
+	if m.ThreadId != nil {
+		updateFieldSql = append(updateFieldSql, "ThreadId = ?")
+		params = append(params, m.ThreadId.Bytes())
+	}
+
+	if m.AuthorId != nil {
+		updateFieldSql = append(updateFieldSql, "AuthorId = ?")
+		params = append(params, m.AuthorId.Bytes())
+	}
+
+	if m.Content != nil {
+		updateFieldSql = append(updateFieldSql, "Content = ?")
+		params = append(params, m.Content)
+	}
+	query += strings.Join(updateFieldSql, ", ")
+	query += " WHERE Uuid = ?"
+	params = append(params, targetUuid.Bytes())
+
+	stmt, err := db.Prepare(query)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec(params...)
+
+	return err
 }

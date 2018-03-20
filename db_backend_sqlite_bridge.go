@@ -40,3 +40,7 @@ func (mc *messageCollection) getCollection(threadId uuid.UUID, count uint64, pag
 func (mc *messageCollection) getTotal(threadId uuid.UUID) (uint, error) {
 	return dbbackend.GetMessageTotal(threadId)
 }
+
+func (mc *messageCollection) editByUuid(targetUuid uuid.UUID, m *entities.MessageEdit) error {
+	return dbbackend.EditMessageByUuid(targetUuid, m)
+}

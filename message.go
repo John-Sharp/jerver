@@ -4,41 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/john-sharp/jerver/entities"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/satori/go.uuid"
-	"strings"
 	"techbrewers.com/usr/repos/entitycoll"
 )
 
 type message entities.Message
-type messageEdit entities.MessageEdit
-
-func (m *message) verifyAndParseNew(b []byte) error {
-	err := json.Unmarshal(b, m)
-
-	if err != nil {
-		return err
-	}
-
-	m.Id, _ = uuid.NewV4()
-	return nil
-}
-
-func (m *message) verifyAndParseEdit(b []byte) error {
-	bu := m.Id
-	err := json.Unmarshal(b, &m)
-	if err != nil {
-		return err
-	}
-	m.Id = bu
-	return nil
-}
-
-type messageNew message
-
-func (m *messageNew) UnmarshalJSON(b []byte) error {
-	return (*message)(m).verifyAndParseNew(b)
-}
 
 var messages messageCollection
 
@@ -60,11 +30,12 @@ func (mc *messageCollection) CreateEntity(requestor entitycoll.Entity, parentEnt
 		return "", errors.New("no thread ID supplied")
 	}
 
-	err := json.Unmarshal(body, (*messageNew)(&m))
+	err := json.Unmarshal(body, &m)
 	if err != nil {
 		return "", err
 	}
 
+	m.Id, _ = uuid.NewV4()
 	m.ThreadId = threadId
 	user := requestor.(*user)
 	m.AuthorId = user.Uuid
@@ -116,7 +87,7 @@ func (mc *messageCollection) GetCollection(parentEntityUuids map[string]uuid.UUI
 }
 
 func (mc *messageCollection) EditEntity(targetUuid uuid.UUID, body []byte) error {
-	var edit messageEdit
+	var edit entities.MessageEdit
 
 	err := json.Unmarshal(body, &edit)
 	if err != nil {
@@ -127,39 +98,7 @@ func (mc *messageCollection) EditEntity(targetUuid uuid.UUID, body []byte) error
 		return nil
 	}
 
-	// TODO cache prepared update statements based on the
-	// 'mask' of set fields
-	// TODO can use reflect to loop through the fields of
-	// the messageEdit struct to construct the query
-	query := "UPDATE messages SET "
-	updateFieldSql := []string{}
-	params := []interface{}{}
-	if edit.ThreadId != nil {
-		updateFieldSql = append(updateFieldSql, "ThreadId = ?")
-		params = append(params, edit.ThreadId.Bytes())
-	}
-
-	if edit.AuthorId != nil {
-		updateFieldSql = append(updateFieldSql, "AuthorId = ?")
-		params = append(params, edit.AuthorId.Bytes())
-	}
-
-	if edit.Content != nil {
-		updateFieldSql = append(updateFieldSql, "Content = ?")
-		params = append(params, edit.Content)
-	}
-	query += strings.Join(updateFieldSql, ", ")
-	query += " WHERE Uuid = ?"
-	params = append(params, targetUuid.Bytes())
-
-	stmt, err := db.Prepare(query)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.Exec(params...)
-
-	return err
+	return mc.editByUuid(targetUuid, &edit)
 }
 
 func (mc *messageCollection) DelEntity(targetUuid uuid.UUID) error {
