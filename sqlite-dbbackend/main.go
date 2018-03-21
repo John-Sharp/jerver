@@ -17,6 +17,8 @@ var getThreadStmt *sql.Stmt
 var createThreadStmt *sql.Stmt
 var deleteThreadStmt *sql.Stmt
 var editThreadStmt *sql.Stmt
+var getUserByUnameStmt *sql.Stmt
+var getUserByUuidStmt *sql.Stmt
 
 func init() {
 	var err error
@@ -28,6 +30,7 @@ func init() {
 
 	messagePrepareStmts()
 	threadPrepareStmts()
+	userPrepareStatements()
 }
 
 func messagePrepareStmts() {
@@ -104,6 +107,37 @@ func threadPrepareStmts() {
     DELETE FROM threads
     WHERE Uuid = ?
     `)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func userPrepareStatements() {
+	var err error
+	getUserByUnameStmt, err = db.Prepare(`
+    SELECT 
+         Uuid,
+         FirstName,
+         SecondName,
+         Username,
+         HashedPwd
+    FROM users 
+    WHERE Username = ?`)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	getUserByUuidStmt, err = db.Prepare(`
+    SELECT 
+         Uuid,
+         FirstName,
+         SecondName,
+         Username,
+         HashedPwd
+    FROM users 
+    WHERE Uuid = ?`)
 
 	if err != nil {
 		log.Fatal(err)
@@ -290,4 +324,26 @@ func GetThreadTotal() (uint, error) {
 func EditThreadByUuid(targetUuid uuid.UUID, t *entities.ThreadEdit) error {
 	_, err := editThreadStmt.Exec(t.Title, targetUuid.Bytes())
 	return err
+}
+
+func GetUserByUsername(uname string) (*entities.User, error) {
+	var u entities.User
+	err := getUserByUnameStmt.QueryRow(uname).Scan(&u.Uuid, &u.FirstName, &u.SecondName, &u.Username, &u.HashedPwd)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &u, nil
+}
+
+func GetUserByUuid(targetUuid uuid.UUID) (*entities.User, error) {
+	var u entities.User
+	err := getUserByUuidStmt.QueryRow(targetUuid.Bytes()).Scan(&u.Uuid, &u.FirstName, &u.SecondName, &u.Username, &u.HashedPwd)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &u, nil
 }

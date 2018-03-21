@@ -28,3 +28,11 @@ type Thread struct {
 type ThreadEdit struct {
 	Title *string
 }
+
+type User struct {
+	Uuid       uuid.UUID
+	FirstName  string
+	SecondName string
+	Username   string
+	HashedPwd  []byte
+}

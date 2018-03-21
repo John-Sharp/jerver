@@ -1,25 +1,9 @@
 package main
 
 import (
-	"database/sql"
-	_ "github.com/mattn/go-sqlite3"
-	"log"
 	"net/http"
 	"techbrewers.com/usr/repos/entitycoll"
 )
-
-var db *sql.DB
-
-func init() {
-	var err error
-
-	db, err = sql.Open("sqlite3", "./jerver.db")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	users.prepareStmts()
-}
 
 func authorizeUser(uname, pwd string) (entitycoll.Entity, error) {
 	return users.verifyUser(uname, pwd)

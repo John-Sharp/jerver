@@ -1,53 +1,15 @@
 package main
 
 import (
-	"database/sql"
-	"encoding/json"
 	"errors"
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/john-sharp/jerver/entities"
 	"github.com/satori/go.uuid"
 	"golang.org/x/crypto/bcrypt"
 	"log"
 	"techbrewers.com/usr/repos/entitycoll"
 )
 
-// user is an api entity
-type user struct {
-	Uuid       uuid.UUID
-	FirstName  string
-	SecondName string
-	Username   string
-	HashedPwd  []byte
-}
-
-// called during the jsonUnmarshal of a new user.
-// Do verification of contents of request body
-// and additional creation processes here (such
-// as generating a unique id)
-func (u *user) verifyAndParseNew(b []byte) error {
-	var t struct {
-		FirstName  *string
-		SecondName *string
-	}
-	err := json.Unmarshal(b, &t)
-
-	if err != nil {
-		return err
-	}
-
-	if t.FirstName == nil {
-		return errors.New("user FirstName not set when required")
-	}
-
-	if t.SecondName == nil {
-		return errors.New("user SecondName not set when required")
-	}
-
-	u.Uuid, _ = uuid.NewV4()
-	u.FirstName = *t.FirstName
-	u.SecondName = *t.SecondName
-	return nil
-}
+type user entities.User
 
 func (u *user) popNew(fname, sname, uname, pwd string) error {
 	hpwd, err := bcrypt.GenerateFromPassword([]byte(pwd), bcrypt.DefaultCost)
@@ -80,92 +42,11 @@ func (uc *userCollection) verifyUser(uname, pwd string) (entitycoll.Entity, erro
 	return u, nil
 }
 
-func (uc *userCollection) getUserByUsername(uname string) (*user, error) {
-	var u user
-	err := uc.getFromUnameStmt.QueryRow(uname).Scan(&u.Uuid, &u.FirstName, &u.SecondName, &u.Username, &u.HashedPwd)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &u, nil
-}
-
-// called during the jsonUnmarshal of an edit of a user.
-// Do error checking here, and make sure that any fields
-// that need to be preserved are preserved (in this case
-// the Uuid)
-func (u *user) verifyAndParseEdit(b []byte) error {
-	bu := u.Uuid
-	err := json.Unmarshal(b, &u)
-	if err != nil {
-		return err
-	}
-	u.Uuid = bu
-	return nil
-}
-
-// userNew and userEdit are types so that parsing of JSON
-// is done differently for new users to how it is done for
-// edited users
-type userNew user
-
-// defining this method means that 'verifyAndParseNew' is
-// called whenever the JSON parser encounters a userNew type
-func (u *userNew) UnmarshalJSON(b []byte) error {
-	return (*user)(u).verifyAndParseNew(b)
-}
-
-type userEdit user
-
-func (u *userEdit) UnmarshalJSON(b []byte) error {
-	return (*user)(u).verifyAndParseEdit(b)
-}
-
 // userCollection will implement entityCollection
-type userCollection struct {
-	getFromUnameStmt *sql.Stmt
-	getFromUuidStmt  *sql.Stmt
-}
+type userCollection struct{}
 
 // global variable representing userCollection of all users in example
 var users userCollection
-
-func (uc *userCollection) prepareStmts() {
-	var err error
-	uc.getFromUnameStmt, err = db.Prepare(`
-    SELECT 
-         Uuid,
-         FirstName,
-         SecondName,
-         Username,
-         HashedPwd
-    FROM users 
-    WHERE Username = ?`)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	uc.getFromUuidStmt, err = db.Prepare(`
-    SELECT 
-         Uuid,
-         FirstName,
-         SecondName,
-         Username,
-         HashedPwd
-    FROM users 
-    WHERE Uuid = ?`)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
-func (uc *userCollection) closeStmts() {
-	users.getFromUnameStmt.Close()
-	users.getFromUuidStmt.Close()
-}
 
 // implementation of entityCollectionInterface...
 
@@ -184,15 +65,7 @@ func (uc *userCollection) CreateEntity(requestor entitycoll.Entity, parentEntity
 }
 
 func (uc *userCollection) GetEntity(targetUuid uuid.UUID) (entitycoll.Entity, error) {
-	var u user
-	err := uc.getFromUuidStmt.QueryRow(targetUuid.Bytes()).Scan(&u.Uuid, &u.FirstName, &u.SecondName, &u.Username, &u.HashedPwd)
-
-	if err != nil {
-		log.Println(err)
-		return nil, err
-	}
-
-	return &u, nil
+	return uc.getUserByUuid(targetUuid)
 }
 
 func (uc *userCollection) GetCollection(parentEntityUuids map[string]uuid.UUID, filter entitycoll.CollFilter) (entitycoll.Collection, error) {
@@ -200,17 +73,7 @@ func (uc *userCollection) GetCollection(parentEntityUuids map[string]uuid.UUID, 
 }
 
 func (uc *userCollection) EditEntity(targetUuid uuid.UUID, body []byte) error {
-	e, err := uc.GetEntity(targetUuid)
-	if err != nil {
-		return err
-	}
-
-	u, ok := e.(*user)
-	if !ok {
-		return errors.New("user pointer type assertion error")
-	}
-
-	return json.Unmarshal(body, (*userEdit)(u))
+	return nil
 }
 
 func (uc *userCollection) DelEntity(targetUuid uuid.UUID) error {

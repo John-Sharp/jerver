@@ -76,3 +76,11 @@ func (tc *threadCollection) getTotal() (uint, error) {
 func (tc *threadCollection) editByUuid(targetUuid uuid.UUID, t *entities.ThreadEdit) error {
 	return dbbackend.EditThreadByUuid(targetUuid, t)
 }
+
+func (uc *userCollection) getUserByUsername(uname string) (*entities.User, error) {
+	return dbbackend.GetUserByUsername(uname)
+}
+
+func (uc *userCollection) getUserByUuid(targetUuid uuid.UUID) (*entities.User, error) {
+	return dbbackend.GetUserByUuid(targetUuid)
+}
