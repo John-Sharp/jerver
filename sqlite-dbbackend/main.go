@@ -10,9 +10,13 @@ import (
 )
 
 var db *sql.DB
-var getMessageByUuidStmt *sql.Stmt
+var getMessageStmt *sql.Stmt
 var createMessageStmt *sql.Stmt
-var deleteMessageByUuidStmt *sql.Stmt
+var deleteMessageStmt *sql.Stmt
+var getThreadStmt *sql.Stmt
+var createThreadStmt *sql.Stmt
+var deleteThreadStmt *sql.Stmt
+var editThreadStmt *sql.Stmt
 
 func init() {
 	var err error
@@ -23,11 +27,12 @@ func init() {
 	}
 
 	messagePrepareStmts()
+	threadPrepareStmts()
 }
 
 func messagePrepareStmts() {
 	var err error
-	getMessageByUuidStmt, err = db.Prepare(`
+	getMessageStmt, err = db.Prepare(`
 	SELECT
 	     Uuid,
 	     ThreadId,
@@ -52,8 +57,51 @@ func messagePrepareStmts() {
 		log.Fatal(err)
 	}
 
-	deleteMessageByUuidStmt, err = db.Prepare(`
+	deleteMessageStmt, err = db.Prepare(`
     DELETE FROM messages
+    WHERE Uuid = ?
+    `)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func threadPrepareStmts() {
+	var err error
+
+	getThreadStmt, err = db.Prepare(`
+    SELECT 
+         Uuid,
+         Title
+    FROM threads 
+    WHERE Uuid = ?`)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	createThreadStmt, err = db.Prepare(`
+    INSERT INTO threads (
+        Uuid,
+        Title )
+    VALUES (?, ?)`)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	editThreadStmt, err = db.Prepare(`
+    UPDATE threads SET Title=?
+    WHERE Uuid = ?
+    `)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	deleteThreadStmt, err = db.Prepare(`
+    DELETE FROM threads
     WHERE Uuid = ?
     `)
 
@@ -64,7 +112,7 @@ func messagePrepareStmts() {
 
 func GetMessageByUuid(targetUuid uuid.UUID) (*entities.Message, error) {
 	var m entities.Message
-	err := getMessageByUuidStmt.QueryRow(targetUuid.Bytes()).Scan(&m.Id, &m.ThreadId, &m.AuthorId, &m.Content)
+	err := getMessageStmt.QueryRow(targetUuid.Bytes()).Scan(&m.Id, &m.ThreadId, &m.AuthorId, &m.Content)
 
 	if err != nil {
 		return nil, err
@@ -83,7 +131,7 @@ func CreateMessage(m *entities.Message) error {
 }
 
 func DeleteMessageByUuid(targetUuid uuid.UUID) error {
-	_, err := deleteMessageByUuidStmt.Exec(targetUuid.Bytes())
+	_, err := deleteMessageStmt.Exec(targetUuid.Bytes())
 	return err
 }
 
@@ -167,5 +215,79 @@ func EditMessageByUuid(targetUuid uuid.UUID, m *entities.MessageEdit) error {
 	defer stmt.Close()
 	_, err = stmt.Exec(params...)
 
+	return err
+}
+
+func GetThreadByUuid(targetUuid uuid.UUID) (*entities.Thread, error) {
+	var t entities.Thread
+	err := getThreadStmt.QueryRow(targetUuid.Bytes()).Scan(&t.Id, &t.Title)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &t, nil
+}
+
+func CreateThread(t *entities.Thread) error {
+	_, err := createThreadStmt.Exec(t.Id.Bytes(), t.Title)
+
+	return err
+}
+
+func DeleteThreadByUuid(targetUuid uuid.UUID) error {
+	_, err := deleteThreadStmt.Exec(targetUuid.Bytes())
+	return err
+}
+
+func GetThreadCollection(count uint64, page int64, appendToCollection func(entities.Thread)) error {
+	offset := page * int64(count)
+
+	// TODO put in filtering
+	rows, err := db.Query(`
+    SELECT
+        Uuid,
+        Title
+    FROM
+        threads
+    LIMIT ?, ?
+    `, offset, count)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var t entities.Thread
+		err = rows.Scan(&t.Id, &t.Title)
+		if err != nil {
+			log.Fatal(err)
+		}
+		appendToCollection(t)
+	}
+	err = rows.Err()
+	if err != nil {
+		return err
+	}
+
+	err = rows.Err()
+	return err
+}
+
+func GetThreadTotal() (uint, error) {
+	ret := uint(0)
+
+	// TODO also need to put filtering in here
+	err := db.QueryRow(`
+    SELECT
+        count(*) 
+    FROM
+        threads
+    `).Scan(&ret)
+
+	return ret, err
+}
+
+func EditThreadByUuid(targetUuid uuid.UUID, t *entities.ThreadEdit) error {
+	_, err := editThreadStmt.Exec(t.Title, targetUuid.Bytes())
 	return err
 }

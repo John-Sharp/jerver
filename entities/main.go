@@ -18,3 +18,13 @@ type MessageEdit struct {
 	AuthorId *uuid.UUID
 	Content  *string
 }
+
+type Thread struct {
+	Id      uuid.UUID
+	Title   string
+	NumMsgs uint
+}
+
+type ThreadEdit struct {
+	Title *string
+}
