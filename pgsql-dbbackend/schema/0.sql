@@ -1,6 +1,12 @@
+BEGIN;
+
 CREATE ROLE jerver WITH LOGIN;
 
 GRANT ALL ON DATABASE jerver TO jerver;
+
+CREATE TABLE schemaVersion (
+    schemaVersion int);
+INSERT INTO schemaVersion (schemaVersion) VALUES (0);
 
 CREATE TABLE users (
    Uuid uuid NOT NULL PRIMARY KEY, 
@@ -25,3 +31,5 @@ CREATE TABLE messages (
 GRANT SELECT, INSERT, UPDATE, DELETE
 ON ALL TABLES IN SCHEMA public 
 TO jerver;
+
+COMMIT;
