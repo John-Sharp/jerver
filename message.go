@@ -5,7 +5,7 @@ import (
 	"errors"
 	"github.com/john-sharp/jerver/entities"
 	"github.com/satori/go.uuid"
-	"techbrewers.com/usr/repos/entitycoll"
+	"gitlab.com/johncolinsharp/entitycoll"
 )
 
 type message entities.Message
@@ -18,7 +18,7 @@ func (mc *messageCollection) GetRestName() string {
 	return "messages"
 }
 
-func (mc *messageCollection) GetParentCollection() entitycoll.EntityCollection {
+func (mc *messageCollection) GetParentCollection() entitycoll.APINode {
 	return &threads
 }
 
@@ -50,11 +50,11 @@ func (mc *messageCollection) CreateEntity(requestor entitycoll.Entity, parentEnt
 	return path, nil
 }
 
-func (mc *messageCollection) GetEntity(targetUuid uuid.UUID) (entitycoll.Entity, error) {
+func (mc *messageCollection) GetEntity(requestor entitycoll.Entity, targetUuid uuid.UUID) (entitycoll.Entity, error) {
 	return mc.getByUuid(targetUuid)
 }
 
-func (mc *messageCollection) GetCollection(parentEntityUuids map[string]uuid.UUID, filter entitycoll.CollFilter) (entitycoll.Collection, error) {
+func (mc *messageCollection) GetCollection(requestor entitycoll.Entity, parentEntityUuids map[string]uuid.UUID, filter entitycoll.CollFilter) (entitycoll.Collection, error) {
 	var ec entitycoll.Collection
 	threadId, ok := parentEntityUuids["threads"]
 	if !ok {
@@ -86,7 +86,7 @@ func (mc *messageCollection) GetCollection(parentEntityUuids map[string]uuid.UUI
 	return ec, nil
 }
 
-func (mc *messageCollection) EditEntity(targetUuid uuid.UUID, body []byte) error {
+func (mc *messageCollection) EditEntity(requestor entitycoll.Entity, targetUuid uuid.UUID, body []byte) error {
 	var edit entities.MessageEdit
 
 	err := json.Unmarshal(body, &edit)
@@ -101,6 +101,6 @@ func (mc *messageCollection) EditEntity(targetUuid uuid.UUID, body []byte) error
 	return mc.editByUuid(targetUuid, &edit)
 }
 
-func (mc *messageCollection) DelEntity(targetUuid uuid.UUID) error {
+func (mc *messageCollection) DelEntity(requestor entitycoll.Entity, targetUuid uuid.UUID) error {
 	return mc.deleteByUuid(targetUuid)
 }

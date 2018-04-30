@@ -1,8 +1,8 @@
 package main
 
 import (
+	"gitlab.com/johncolinsharp/entitycoll"
 	"net/http"
-	"techbrewers.com/usr/repos/entitycoll"
 )
 
 func authorizeUser(uname, pwd string) (entitycoll.Entity, error) {

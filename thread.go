@@ -5,7 +5,7 @@ import (
 	"errors"
 	"github.com/john-sharp/jerver/entities"
 	"github.com/satori/go.uuid"
-	"techbrewers.com/usr/repos/entitycoll"
+	"gitlab.com/johncolinsharp/entitycoll"
 )
 
 func (t *thread) verifyAndParseNew(b []byte) error {
@@ -45,7 +45,7 @@ func (tc *threadCollection) GetRestName() string {
 	return "threads"
 }
 
-func (tc *threadCollection) GetParentCollection() entitycoll.EntityCollection {
+func (tc *threadCollection) GetParentCollection() entitycoll.APINode {
 	return nil
 }
 
@@ -61,11 +61,11 @@ func (tc *threadCollection) CreateEntity(requestor entitycoll.Entity, parentEnti
 	return path, nil
 }
 
-func (tc *threadCollection) GetEntity(targetUuid uuid.UUID) (entitycoll.Entity, error) {
+func (tc *threadCollection) GetEntity(requestor entitycoll.Entity, targetUuid uuid.UUID) (entitycoll.Entity, error) {
 	return tc.getByUuid(targetUuid)
 }
 
-func (tc *threadCollection) GetCollection(parentEntityUuids map[string]uuid.UUID, filter entitycoll.CollFilter) (entitycoll.Collection, error) {
+func (tc *threadCollection) GetCollection(requestor entitycoll.Entity, parentEntityUuids map[string]uuid.UUID, filter entitycoll.CollFilter) (entitycoll.Collection, error) {
 	var ec entitycoll.Collection
 
 	count := uint64(10)
@@ -93,7 +93,7 @@ func (tc *threadCollection) GetCollection(parentEntityUuids map[string]uuid.UUID
 	return ec, nil
 }
 
-func (tc *threadCollection) EditEntity(targetUuid uuid.UUID, body []byte) error {
+func (tc *threadCollection) EditEntity(requestor entitycoll.Entity, targetUuid uuid.UUID, body []byte) error {
 	var edit entities.ThreadEdit
 
 	err := json.Unmarshal(body, &edit)
@@ -108,6 +108,6 @@ func (tc *threadCollection) EditEntity(targetUuid uuid.UUID, body []byte) error 
 	return tc.editByUuid(targetUuid, &edit)
 }
 
-func (tc *threadCollection) DelEntity(targetUuid uuid.UUID) error {
+func (tc *threadCollection) DelEntity(requestor entitycoll.Entity, targetUuid uuid.UUID) error {
 	return tc.deleteByUuid(targetUuid)
 }

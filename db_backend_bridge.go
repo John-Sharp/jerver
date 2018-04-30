@@ -5,7 +5,7 @@ import (
 	// "github.com/john-sharp/jerver/sqlite-dbbackend"
 	"github.com/john-sharp/jerver/pgsql-dbbackend"
 	"github.com/satori/go.uuid"
-	"techbrewers.com/usr/repos/entitycoll"
+	"gitlab.com/johncolinsharp/entitycoll"
 )
 
 type messageCollection struct{}

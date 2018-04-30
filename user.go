@@ -4,9 +4,9 @@ import (
 	"errors"
 	"github.com/john-sharp/jerver/entities"
 	"github.com/satori/go.uuid"
+	"gitlab.com/johncolinsharp/entitycoll"
 	"golang.org/x/crypto/bcrypt"
 	"log"
-	"techbrewers.com/usr/repos/entitycoll"
 )
 
 type user entities.User
@@ -54,7 +54,7 @@ func (uc *userCollection) GetRestName() string {
 	return "users"
 }
 
-func (uc *userCollection) GetParentCollection() entitycoll.EntityCollection {
+func (uc *userCollection) GetParentCollection() entitycoll.APINode {
 	return nil
 }
 
@@ -64,18 +64,18 @@ func (uc *userCollection) CreateEntity(requestor entitycoll.Entity, parentEntity
 	return "", errors.New("create entity not allowed")
 }
 
-func (uc *userCollection) GetEntity(targetUuid uuid.UUID) (entitycoll.Entity, error) {
+func (uc *userCollection) GetEntity(requestor entitycoll.Entity, targetUuid uuid.UUID) (entitycoll.Entity, error) {
 	return uc.getUserByUuid(targetUuid)
 }
 
-func (uc *userCollection) GetCollection(parentEntityUuids map[string]uuid.UUID, filter entitycoll.CollFilter) (entitycoll.Collection, error) {
+func (uc *userCollection) GetCollection(requestor entitycoll.Entity, parentEntityUuids map[string]uuid.UUID, filter entitycoll.CollFilter) (entitycoll.Collection, error) {
 	return entitycoll.Collection{}, nil
 }
 
-func (uc *userCollection) EditEntity(targetUuid uuid.UUID, body []byte) error {
+func (uc *userCollection) EditEntity(requestor entitycoll.Entity, targetUuid uuid.UUID, body []byte) error {
 	return nil
 }
 
-func (uc *userCollection) DelEntity(targetUuid uuid.UUID) error {
+func (uc *userCollection) DelEntity(requestor entitycoll.Entity, targetUuid uuid.UUID) error {
 	return errors.New("del entity not allowed")
 }
